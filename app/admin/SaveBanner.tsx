@@ -12,7 +12,8 @@ const MESSAGES: Record<string, string> = {
   'folder-deleted': 'Cartella eliminata.',
   photo: 'Foto caricata.',
   'photo-deleted': 'Foto eliminata.',
-  settings: 'Impostazioni salvate.'
+  settings: 'Impostazioni salvate.',
+  reorder: 'Ordine aggiornato.'
 };
 
 export default function SaveBanner({ saved }: { saved?: string }) {

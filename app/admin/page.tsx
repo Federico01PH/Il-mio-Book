@@ -15,13 +15,14 @@ import {
   createFolder,
   deleteFolder,
   deletePhoto,
+  swapFolderOrder,
+  swapPhotoOrder,
   updateSettings,
   adminLogout
 } from './actions';
 import PhotoUploader from './PhotoUploader';
 import SubmitButton from './SubmitButton';
 import SaveBanner from './SaveBanner';
-import DraggableList from './DraggableList';
 
 export const metadata: Metadata = { title: 'Admin' };
 export const dynamic = 'force-dynamic';
@@ -273,29 +274,44 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
             </div>
           </form>
 
-          <p className="text-[10px] uppercase tracking-[0.24em] text-muted">
-            ⠿ Trascina le cartelle per riordinarle
-          </p>
-          <DraggableList
-            items={folders.data ?? []}
-            type="folder"
-            className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
-            renderItem={(f) => {
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {(folders.data ?? []).map((f, fi, arr) => {
               const folderPhotos = photosByFolder.get(f.id) ?? [];
               const cover = publicPhotoUrl(f.cover_storage_path);
+              const prevFolder = arr[fi - 1];
+              const nextFolder = arr[fi + 1];
               return (
-                <div className="rounded-2xl border border-white/10 bg-black/60 p-5">
+                <div key={f.id} className="rounded-2xl border border-white/10 bg-black/60 p-5">
                   <div className="flex items-center justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-xs uppercase tracking-[0.24em] text-muted">/{f.slug}</p>
                       <h3 className="text-lg font-semibold text-white">{f.name}</h3>
                     </div>
-                    <form action={deleteFolder}>
-                      <input type="hidden" name="id" value={f.id} />
-                      <button className="text-xs uppercase tracking-[0.2em] text-rose-300 hover:underline">
-                        Elimina
-                      </button>
-                    </form>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {/* Ordine ▲▼ */}
+                      <div className="flex flex-col gap-0.5">
+                        {prevFolder && (
+                          <form action={swapFolderOrder}>
+                            <input type="hidden" name="idA" value={f.id} />
+                            <input type="hidden" name="idB" value={prevFolder.id} />
+                            <button className="text-white/50 hover:text-white text-xs leading-none px-1">▲</button>
+                          </form>
+                        )}
+                        {nextFolder && (
+                          <form action={swapFolderOrder}>
+                            <input type="hidden" name="idA" value={f.id} />
+                            <input type="hidden" name="idB" value={nextFolder.id} />
+                            <button className="text-white/50 hover:text-white text-xs leading-none px-1">▼</button>
+                          </form>
+                        )}
+                      </div>
+                      <form action={deleteFolder}>
+                        <input type="hidden" name="id" value={f.id} />
+                        <button className="text-xs uppercase tracking-[0.2em] text-rose-300 hover:underline">
+                          Elimina
+                        </button>
+                      </form>
+                    </div>
                   </div>
 
                   {cover ? (
@@ -314,57 +330,58 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
                       <PhotoUploader folderId={f.id} folderSlug={f.slug} />
                     </div>
 
-                    {folderPhotos.length > 0 && (
-                      <>
-                        <p className="mt-3 text-[10px] uppercase tracking-[0.24em] text-muted">
-                          ⠿ Trascina per riordinare le foto
-                        </p>
-                        <DraggableList
-                          items={folderPhotos}
-                          type="photo"
-                          className="mt-1 space-y-2"
-                          renderItem={(p) => (
-                            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-2 text-xs">
-                              <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white/5">
-                                {publicPhotoUrl(p.storage_path) ? (
-                                  <Image
-                                    src={publicPhotoUrl(p.storage_path)!}
-                                    alt=""
-                                    fill
-                                    sizes="64px"
-                                    className="object-cover"
-                                  />
-                                ) : null}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-white">{p.caption ?? '— senza didascalia —'}</p>
-                                <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
-                                  {p.hi_res_storage_path ? 'hi-res ✓' : 'solo preview'}
-                                </p>
-                              </div>
-                              <form action={deletePhoto}>
-                                <input type="hidden" name="id" value={p.id} />
-                                <button className="text-[10px] uppercase tracking-[0.2em] text-rose-300 hover:underline">
-                                  Elimina
-                                </button>
-                              </form>
+                    <ul className="mt-3 space-y-2">
+                      {folderPhotos.map((p, pi, parr) => {
+                        const prevPhoto = parr[pi - 1];
+                        const nextPhoto = parr[pi + 1];
+                        return (
+                          <li key={p.id} className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 p-2 text-xs">
+                            <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white/5">
+                              {publicPhotoUrl(p.storage_path) ? (
+                                <Image src={publicPhotoUrl(p.storage_path)!} alt="" fill sizes="64px" className="object-cover" />
+                              ) : null}
                             </div>
-                          )}
-                        />
-                      </>
-                    )}
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-white">{p.caption ?? '— senza didascalia —'}</p>
+                              <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                                {p.hi_res_storage_path ? 'hi-res ✓' : 'solo preview'}
+                              </p>
+                            </div>
+                            <div className="flex flex-col gap-0.5 shrink-0">
+                              {prevPhoto && (
+                                <form action={swapPhotoOrder}>
+                                  <input type="hidden" name="idA" value={p.id} />
+                                  <input type="hidden" name="idB" value={prevPhoto.id} />
+                                  <button className="text-white/50 hover:text-white text-[10px] leading-none px-1">▲</button>
+                                </form>
+                              )}
+                              {nextPhoto && (
+                                <form action={swapPhotoOrder}>
+                                  <input type="hidden" name="idA" value={p.id} />
+                                  <input type="hidden" name="idB" value={nextPhoto.id} />
+                                  <button className="text-white/50 hover:text-white text-[10px] leading-none px-1">▼</button>
+                                </form>
+                              )}
+                            </div>
+                            <form action={deletePhoto}>
+                              <input type="hidden" name="id" value={p.id} />
+                              <button className="text-[10px] uppercase tracking-[0.2em] text-rose-300 hover:underline">
+                                Elimina
+                              </button>
+                            </form>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </details>
 
-                  <Link
-                    href={`/galleries/${f.slug}`}
-                    className="mt-3 inline-block text-xs uppercase tracking-[0.2em] text-white/70 hover:text-white"
-                  >
+                  <Link href={`/galleries/${f.slug}`} className="mt-3 inline-block text-xs uppercase tracking-[0.2em] text-white/70 hover:text-white">
                     Apri pagina pubblica →
                   </Link>
                 </div>
               );
-            }}
-          />
+            })}
+          </div>
         </Section>
 
         {/* IMPOSTAZIONI */}

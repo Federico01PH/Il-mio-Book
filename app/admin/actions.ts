@@ -66,6 +66,52 @@ export async function approveRequest(formData: FormData) {
   redirect('/admin?saved=approve');
 }
 
+export async function swapFolderOrder(formData: FormData) {
+  requireAdmin();
+  const idA = String(formData.get('idA') ?? '');
+  const idB = String(formData.get('idB') ?? '');
+  if (!idA || !idB) return;
+
+  const { data } = await supabaseAdmin
+    .from('folders')
+    .select('id,sort_order')
+    .in('id', [idA, idB]);
+
+  if (!data || data.length !== 2) return;
+  const [a, b] = data;
+  await supabaseAdmin.from('folders').update({ sort_order: b.sort_order }).eq('id', a.id);
+  await supabaseAdmin.from('folders').update({ sort_order: a.sort_order }).eq('id', b.id);
+
+  revalidatePath('/admin');
+  revalidatePath('/galleries');
+  redirect('/admin?saved=reorder');
+}
+
+export async function swapPhotoOrder(formData: FormData) {
+  requireAdmin();
+  const idA = String(formData.get('idA') ?? '');
+  const idB = String(formData.get('idB') ?? '');
+  if (!idA || !idB) return;
+
+  const { data } = await supabaseAdmin
+    .from('photos')
+    .select('id,sort_order,folder_id')
+    .in('id', [idA, idB]);
+
+  if (!data || data.length !== 2) return;
+  const [a, b] = data;
+  await supabaseAdmin.from('photos').update({ sort_order: b.sort_order }).eq('id', a.id);
+  await supabaseAdmin.from('photos').update({ sort_order: a.sort_order }).eq('id', b.id);
+
+  const folderId = a.folder_id;
+  const { data: folder } = await supabaseAdmin
+    .from('folders').select('slug').eq('id', folderId).single();
+
+  revalidatePath('/admin');
+  if (folder) revalidatePath(`/galleries/${folder.slug}`);
+  redirect('/admin?saved=reorder');
+}
+
 export async function revokeAccess(formData: FormData) {
   requireAdmin();
   const id = String(formData.get('id') ?? '');
