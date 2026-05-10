@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf .next)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co NEXT_PUBLIC_SUPABASE_ANON_KEY=fake-anon SUPABASE_SERVICE_ROLE_KEY=fake-service ADMIN_EMAIL=test@test.it ADMIN_SECRET=this-is-a-very-long-fake-secret-for-test SITE_URL=http://localhost:3000 npx next dev --port 3100)",
+      "Bash(echo \"started pid=$!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3100)",
+      "Read(//tmp/**)",
+      "Bash(kill 242)",
+      "Bash(curl -s -o /dev/null -w \"GET / -> %{http_code}\\\\n\" http://localhost:3000/)",
+      "Bash(kill 272)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"GET /admin/login -> %{http_code}\\\\n\" http://localhost:3000/admin/login2)",
+      "Bash(curl -s -o /dev/null -w \"GET /admin/login -> %{http_code}\\\\n\" http://localhost:3000/admin/login)",
+      "Bash(jobs -l)",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(netstat -ano)"
+    ]
+  }
+}
