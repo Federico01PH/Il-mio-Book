@@ -1,14 +1,15 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 export default function AccessGate() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,9 +29,8 @@ export default function AccessGate() {
       }
 
       toast.success('Richiesta inviata.');
-      setEmail('');
-      setReason('');
-      setDone(true);
+      // Il cookie è stato settato dal server: refreshando, la home mostrerà la PendingGate
+      router.refresh();
     } catch (err) {
       console.error('Request access error:', err);
       toast.error('Impossibile inviare la richiesta. Riprova più tardi.');
@@ -55,18 +55,7 @@ export default function AccessGate() {
           </p>
         </div>
 
-        {done ? (
-          <div className="space-y-3 text-center text-sm text-muted">
-            <p>Richiesta ricevuta. Controlla la tua email nei prossimi giorni.</p>
-            <button
-              onClick={() => setDone(false)}
-              className="text-xs uppercase tracking-[0.28em] text-white hover:underline"
-            >
-              Invia un’altra richiesta
-            </button>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
             <label className="block text-sm text-muted">
               Email
               <input
@@ -99,7 +88,6 @@ export default function AccessGate() {
               {loading ? 'Invio…' : 'Richiedi accesso'}
             </button>
           </form>
-        )}
       </motion.div>
     </div>
   );

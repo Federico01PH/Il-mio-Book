@@ -7,9 +7,20 @@ import { z } from 'zod';
 import supabaseAdmin from '../../lib/supabaseServer';
 import { verify, randomToken } from '../../lib/auth';
 import { ADMIN_COOKIE } from '../../lib/session';
-import { sendMagicLinkEmail } from '../../lib/mailer';
-import { env } from '../../lib/env';
 import { slugify, PHOTOS_BUCKET, HIRES_BUCKET } from '../../lib/storage';
+
+/** Wrap Supabase Storage errors so "fetch failed" becomes attionable */
+function diagnoseError(e: unknown, where: string): Error {
+  if (e instanceof TypeError && /fetch failed/i.test(e.message)) {
+    return new Error(
+      `Connessione a Supabase fallita (${where}). ` +
+        'Cause probabili: il progetto Supabase è in pausa, oppure il bucket "photos" / "hi-res" non esiste. ' +
+        'Vai su Supabase → Storage e verifica che entrambi i bucket esistano. ' +
+        'Vai su Supabase → Project (home) e riattiva il progetto se è in pausa.'
+    );
+  }
+  return e instanceof Error ? e : new Error(String(e));
+}
 
 function requireAdmin() {
   const token = cookies().get(ADMIN_COOKIE)?.value;
@@ -37,30 +48,37 @@ export async function approveRequest(formData: FormData) {
     redirect('/admin?saved=approve');
   }
 
-  const sessionToken = randomToken();
-  const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000);
-
+  // Accesso permanente: session_expires_at = NULL → nessuna scadenza.
+  // Niente email all'utente: il cookie nel suo browser basta per entrare.
   const { error } = await supabaseAdmin
     .from('access_requests')
     .update({
       status: 'approved',
-      session_token: sessionToken,
-      session_expires_at: expiresAt.toISOString(),
+      session_expires_at: null,
       consumed_at: new Date().toISOString()
     })
     .eq('id', id);
 
   if (error) throw new Error(error.message);
 
-  const accessLink = `${env.siteUrl}/api/access?token=${encodeURIComponent(sessionToken)}`;
-  try {
-    await sendMagicLinkEmail(existing.email, accessLink);
-  } catch (e) {
-    console.error('[admin approve] invio email fallito:', e);
-  }
-
   revalidatePath('/admin');
+  revalidatePath('/');
   redirect('/admin?saved=approve');
+}
+
+export async function revokeAccess(formData: FormData) {
+  requireAdmin();
+  const id = String(formData.get('id') ?? '');
+  if (!id) throw new Error('id mancante');
+
+  const { error } = await supabaseAdmin
+    .from('access_requests')
+    .update({ status: 'rejected', session_expires_at: new Date().toISOString() })
+    .eq('id', id);
+
+  if (error) throw new Error(error.message);
+  revalidatePath('/admin');
+  redirect('/admin?saved=revoke');
 }
 
 export async function rejectRequest(formData: FormData) {
@@ -112,10 +130,14 @@ export async function createFolder(formData: FormData) {
     const ext = (cover.name.split('.').pop() ?? 'jpg').toLowerCase();
     coverPath = `covers/${slug}-${Date.now()}.${ext}`;
     const buffer = Buffer.from(await cover.arrayBuffer());
-    const { error: uploadErr } = await supabaseAdmin.storage
-      .from(PHOTOS_BUCKET)
-      .upload(coverPath, buffer, { contentType: cover.type, upsert: true });
-    if (uploadErr) throw new Error(`Upload cover fallito: ${uploadErr.message}`);
+    try {
+      const { error: uploadErr } = await supabaseAdmin.storage
+        .from(PHOTOS_BUCKET)
+        .upload(coverPath, buffer, { contentType: cover.type, upsert: true });
+      if (uploadErr) throw new Error(`Upload cover fallito: ${uploadErr.message}`);
+    } catch (e) {
+      throw diagnoseError(e, 'upload cover');
+    }
   }
 
   const { error } = await supabaseAdmin.from('folders').insert({
@@ -169,10 +191,14 @@ export async function uploadPhoto(formData: FormData) {
   const photoPath = `${folder.slug}/${baseName}.${ext}`;
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  const { error: uploadErr } = await supabaseAdmin.storage
-    .from(PHOTOS_BUCKET)
-    .upload(photoPath, buffer, { contentType: file.type, upsert: false });
-  if (uploadErr) throw new Error(`Upload foto fallito: ${uploadErr.message}`);
+  try {
+    const { error: uploadErr } = await supabaseAdmin.storage
+      .from(PHOTOS_BUCKET)
+      .upload(photoPath, buffer, { contentType: file.type, upsert: false });
+    if (uploadErr) throw new Error(`Upload foto fallito: ${uploadErr.message}`);
+  } catch (e) {
+    throw diagnoseError(e, 'upload foto');
+  }
 
   let hiResPath: string | null = null;
   const hiResFile = formData.get('hiRes') as File | null;
@@ -180,10 +206,14 @@ export async function uploadPhoto(formData: FormData) {
     const hiExt = (hiResFile.name.split('.').pop() ?? 'jpg').toLowerCase();
     hiResPath = `${folder.slug}/${baseName}.${hiExt}`;
     const hiBuffer = Buffer.from(await hiResFile.arrayBuffer());
-    const { error: hiErr } = await supabaseAdmin.storage
-      .from(HIRES_BUCKET)
-      .upload(hiResPath, hiBuffer, { contentType: hiResFile.type, upsert: false });
-    if (hiErr) throw new Error(`Upload hi-res fallito: ${hiErr.message}`);
+    try {
+      const { error: hiErr } = await supabaseAdmin.storage
+        .from(HIRES_BUCKET)
+        .upload(hiResPath, hiBuffer, { contentType: hiResFile.type, upsert: false });
+      if (hiErr) throw new Error(`Upload hi-res fallito: ${hiErr.message}`);
+    } catch (e) {
+      throw diagnoseError(e, 'upload hi-res');
+    }
   }
 
   const { error } = await supabaseAdmin.from('photos').insert({
@@ -249,10 +279,14 @@ export async function updateSettings(formData: FormData) {
     const ext = (avatar.name.split('.').pop() ?? 'jpg').toLowerCase();
     const path = `bio/avatar-${Date.now()}.${ext}`;
     const buffer = Buffer.from(await avatar.arrayBuffer());
-    const { error: uploadErr } = await supabaseAdmin.storage
-      .from(PHOTOS_BUCKET)
-      .upload(path, buffer, { contentType: avatar.type, upsert: true });
-    if (uploadErr) throw new Error(`Upload avatar fallito: ${uploadErr.message}`);
+    try {
+      const { error: uploadErr } = await supabaseAdmin.storage
+        .from(PHOTOS_BUCKET)
+        .upload(path, buffer, { contentType: avatar.type, upsert: true });
+      if (uploadErr) throw new Error(`Upload avatar fallito: ${uploadErr.message}`);
+    } catch (e) {
+      throw diagnoseError(e, 'upload avatar');
+    }
     await supabaseAdmin
       .from('site_settings')
       .upsert({ key: 'bio_avatar_path', value: path, updated_at: new Date().toISOString() }, { onConflict: 'key' });

@@ -1,6 +1,7 @@
 import AccessGate from '../components/AccessGate';
+import PendingGate from '../components/PendingGate';
 import InternalHome from '../components/InternalHome';
-import { getActiveSession } from '../lib/session';
+import { getActiveSession, getRequestStatus } from '../lib/session';
 import supabaseAdmin from '../lib/supabaseServer';
 import { publicPhotoUrl } from '../lib/storage';
 
@@ -10,9 +11,16 @@ export default async function Page() {
   const session = await getActiveSession();
 
   if (!session) {
+    const status = await getRequestStatus();
     return (
       <main className="min-h-screen bg-surface text-text">
-        <AccessGate />
+        {status === 'pending' ? (
+          <PendingGate />
+        ) : status === 'rejected' ? (
+          <PendingGate rejected />
+        ) : (
+          <AccessGate />
+        )}
       </main>
     );
   }

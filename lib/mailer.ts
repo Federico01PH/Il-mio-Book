@@ -73,21 +73,6 @@ export async function sendAccessRequestNotification(
   await sendEmail(env.adminEmail, `Richiesta accesso · ${email}`, html);
 }
 
-export async function sendMagicLinkEmail(email: string, accessLink: string) {
-  const html = layout(
-    'Accesso approvato',
-    `
-      <p>La tua richiesta è stata approvata. Clicca il pulsante qui sotto per entrare nel portfolio.</p>
-      <p style="margin:24px 0;">
-        <a href="${accessLink}" style="display:inline-block;padding:14px 24px;background:#fff;color:#000;text-decoration:none;border-radius:999px;font-weight:600;">Entra nel portfolio</a>
-      </p>
-      <p style="font-size:12px;color:#888;">Il link rimane valido per 30 giorni e può essere usato una sola volta da questo dispositivo.</p>
-    `
-  );
-
-  await sendEmail(email, `${env.siteName} · Accesso approvato`, html);
-}
-
 export async function sendHiResNotificationToAdmin(params: {
   email: string;
   photoCaption: string | null;

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import supabaseAdmin from '../../../lib/supabaseServer';
 import { sendAccessRequestNotification } from '../../../lib/mailer';
 import { randomToken } from '../../../lib/auth';
+import { SESSION_COOKIE } from '../../../lib/session';
 
 export const runtime = 'nodejs';
 
@@ -22,12 +23,18 @@ export async function POST(request: Request) {
 
   const requestToken = randomToken();
 
+  const ip =
+    (request.headers.get('x-forwarded-for') ?? '').split(',')[0].trim() ||
+    request.headers.get('x-real-ip') ||
+    null;
+
   const { data, error } = await supabaseAdmin
     .from('access_requests')
     .insert({
       email: parsed.email,
       reason: parsed.reason,
       request_token: requestToken,
+      ip_address: ip,
       status: 'pending'
     })
     .select('id')
@@ -37,11 +44,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: error?.message ?? 'Errore di salvataggio' }, { status: 500 });
   }
 
+  // Notifica admin (l'utente NON riceve email)
   try {
     await sendAccessRequestNotification(data.id, parsed.email, parsed.reason);
   } catch (sendError) {
     console.error('[request-access] invio email admin fallito:', sendError);
   }
 
-  return NextResponse.json({ success: true });
+  // Cookie con il token: l'utente sarà sbloccato automaticamente quando lo status diventa approved
+  const response = NextResponse.json({ success: true });
+  response.cookies.set({
+    name: SESSION_COOKIE,
+    value: requestToken,
+    httpOnly: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 60, // 60 giorni
+    secure: process.env.NODE_ENV === 'production'
+  });
+  return response;
 }

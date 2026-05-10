@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 const MESSAGES: Record<string, string> = {
-  approve: 'Richiesta approvata. Email inviata all’utente.',
+  approve: "Accesso approvato. L'utente entra al prossimo refresh.",
   reject: 'Richiesta rifiutata.',
+  revoke: 'Accesso revocato.',
   hires: 'Richiesta hi-res segnata come inviata.',
   folder: 'Cartella creata.',
   'folder-deleted': 'Cartella eliminata.',
@@ -34,7 +35,7 @@ export default function SaveBanner({ saved }: { saved?: string }) {
   return (
     <div className="fixed top-6 left-1/2 z-50 -translate-x-1/2">
       <div className="rounded-full border border-emerald-400/40 bg-emerald-400/10 px-5 py-2.5 text-xs uppercase tracking-[0.24em] text-emerald-200 shadow-lg">
-        ✓ {message}
+        {'✓'} {message}
       </div>
     </div>
   );

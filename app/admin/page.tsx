@@ -11,6 +11,7 @@ import {
   approveRequest,
   rejectRequest,
   markHiResSent,
+  revokeAccess,
   createFolder,
   deleteFolder,
   uploadPhoto,
@@ -43,12 +44,19 @@ export default async function AdminPage({
   const payload = verify(cookie);
   if (!payload || payload.act !== 'admin-session') redirect('/admin/login');
 
-  const [reqs, hiRes, folders, photos, settingsRows] = await Promise.all([
+  const [reqs, approved, hiRes, folders, photos, settingsRows] = await Promise.all([
     supabaseAdmin
       .from('access_requests')
       .select('id,email,reason,status,created_at')
+      .in('status', ['pending', 'rejected'])
       .order('created_at', { ascending: false })
       .limit(50),
+    supabaseAdmin
+      .from('access_requests')
+      .select('id,email,ip_address,created_at,consumed_at,session_expires_at')
+      .eq('status', 'approved')
+      .order('consumed_at', { ascending: false })
+      .limit(100),
     supabaseAdmin
       .from('hi_res_requests')
       .select('id,email,message,status,created_at,photo:photo_id(caption,folder:folder_id(name,slug))')
@@ -92,6 +100,42 @@ export default async function AdminPage({
             </button>
           </form>
         </header>
+
+        {/* CHI HA ACCESSO */}
+        <Section title={`Chi ha accesso (${(approved.data ?? []).length})`}>
+          {(approved.data ?? []).length === 0 ? (
+            <Empty>Nessun utente approvato.</Empty>
+          ) : (
+            <ul className="space-y-2">
+              {approved.data!.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/60 px-5 py-4 text-sm"
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium text-white">{r.email}</p>
+                    <p className="text-xs text-muted">
+                      IP: {r.ip_address ?? '—'} · Richiesta:{' '}
+                      {new Date(r.created_at).toLocaleDateString('it-IT')} · Approvato:{' '}
+                      {r.consumed_at
+                        ? new Date(r.consumed_at).toLocaleDateString('it-IT')
+                        : '—'} ·{' '}
+                      {r.session_expires_at
+                        ? `Scade ${new Date(r.session_expires_at).toLocaleDateString('it-IT')}`
+                        : 'Accesso permanente'}
+                    </p>
+                  </div>
+                  <form action={revokeAccess}>
+                    <input type="hidden" name="id" value={r.id} />
+                    <button className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-rose-200 hover:bg-rose-400/20">
+                      Revoca
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
 
         {/* RICHIESTE ACCESSO */}
         <Section title="Richieste di accesso">

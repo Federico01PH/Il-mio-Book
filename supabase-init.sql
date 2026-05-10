@@ -18,9 +18,20 @@ create table if not exists access_requests (
   request_token text unique not null,
   session_token text unique,
   session_expires_at timestamptz,
+  ip_address text,
   consumed_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+-- Aggiunge ip_address se la tabella esiste già senza quella colonna
+do $$ begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name='access_requests' and column_name='ip_address'
+  ) then
+    alter table access_requests add column ip_address text;
+  end if;
+end $$;
 
 create index if not exists access_requests_request_token_idx on access_requests(request_token);
 create index if not exists access_requests_session_token_idx on access_requests(session_token);

@@ -9,9 +9,10 @@ export interface ActiveSession {
   requestId: string;
 }
 
+export type RequestStatus = 'pending' | 'approved' | 'rejected';
+
 /**
- * Verifica il cookie di sessione contro il DB.
- * Restituisce null se assente, scaduto o non approvato.
+ * Sessione attiva = cookie presente + richiesta approvata + non scaduta.
  */
 export async function getActiveSession(): Promise<ActiveSession | null> {
   const token = cookies().get(SESSION_COOKIE)?.value;
@@ -20,7 +21,7 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
   const { data, error } = await supabaseAdmin
     .from('access_requests')
     .select('id,email,status,session_expires_at')
-    .eq('session_token', token)
+    .eq('request_token', token)
     .single();
 
   if (error || !data) return null;
@@ -30,4 +31,30 @@ export async function getActiveSession(): Promise<ActiveSession | null> {
   }
 
   return { email: data.email, requestId: data.id };
+}
+
+/**
+ * Status corrente della richiesta legata al cookie.
+ * Restituisce null se non c'è cookie, o la richiesta non esiste.
+ */
+export async function getRequestStatus(): Promise<RequestStatus | null> {
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const { data } = await supabaseAdmin
+    .from('access_requests')
+    .select('status,session_expires_at')
+    .eq('request_token', token)
+    .single();
+
+  if (!data) return null;
+
+  if (
+    data.status === 'approved' &&
+    data.session_expires_at &&
+    new Date(data.session_expires_at).getTime() < Date.now()
+  ) {
+    return null;
+  }
+  return data.status as RequestStatus;
 }

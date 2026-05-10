@@ -17,7 +17,8 @@
       "Bash(curl -s -o /dev/null -w \"GET /admin/login -> %{http_code}\\\\n\" http://localhost:3000/admin/login)",
       "Bash(jobs -l)",
       "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force\")",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(git add *)"
     ]
   }
 }
