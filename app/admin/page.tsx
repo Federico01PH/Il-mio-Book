@@ -14,11 +14,11 @@ import {
   revokeAccess,
   createFolder,
   deleteFolder,
-  uploadPhoto,
   deletePhoto,
   updateSettings,
   adminLogout
 } from './actions';
+import PhotoUploader from './PhotoUploader';
 import SubmitButton from './SubmitButton';
 import SaveBanner from './SaveBanner';
 
@@ -27,6 +27,7 @@ export const dynamic = 'force-dynamic';
 
 interface SettingsMap {
   site_name?: string;
+  bio_name?: string;
   bio_title?: string;
   bio_text?: string;
   bio_avatar_path?: string;
@@ -300,46 +301,11 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
 
                   <details className="mt-3">
                     <summary className="cursor-pointer text-xs uppercase tracking-[0.2em] text-white/80">
-                      Gestisci foto
+                      Carica foto ({folderPhotos.length} presenti)
                     </summary>
-                    <form
-                      action={uploadPhoto}
-                    className="mt-3 space-y-2 rounded-xl border border-white/10 bg-black/40 p-3"
-                    >
-                      <input type="hidden" name="folderId" value={f.id} />
-                      <label className="block text-xs text-muted">
-                        Foto
-                        <input
-                          type="file"
-                          name="file"
-                          accept="image/*"
-                          required
-                          className="mt-2 w-full text-xs text-white/80 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-[0.2em] file:text-white"
-                        />
-                      </label>
-                      <label className="block text-xs text-muted">
-                        Didascalia (opzionale)
-                        <input
-                          name="caption"
-                          className="mt-2 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-white outline-none focus:border-white/40"
-                        />
-                      </label>
-                      <label className="block text-xs text-muted">
-                        Versione hi-res (opzionale)
-                        <input
-                          type="file"
-                          name="hiRes"
-                          accept="image/*"
-                          className="mt-2 w-full text-xs text-white/80 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-[0.2em] file:text-white"
-                        />
-                      </label>
-                      <SubmitButton
-                        pendingText="Caricamento…"
-                        className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Carica
-                      </SubmitButton>
-                    </form>
+                    <div className="mt-3">
+                      <PhotoUploader folderId={f.id} folderSlug={f.slug} />
+                    </div>
 
                     <ul className="mt-3 space-y-2">
                       {folderPhotos.map((p) => (
@@ -394,7 +360,8 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
 className="grid gap-4 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid-cols-2"
           >
             <Field label="Nome sito" name="site_name" defaultValue={settings.site_name} />
-            <Field label="Titolo bio" name="bio_title" defaultValue={settings.bio_title} />
+            <Field label="Nome (es. Federico Azzarito)" name="bio_name" defaultValue={settings.bio_name} />
+            <Field label="Ruolo (es. Fotografo)" name="bio_title" defaultValue={settings.bio_title} />
             <Textarea
               label="Testo bio"
               name="bio_text"

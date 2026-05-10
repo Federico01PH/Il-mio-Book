@@ -258,6 +258,7 @@ export async function updateSettings(formData: FormData) {
   requireAdmin();
   const keys = [
     'site_name',
+    'bio_name',
     'bio_title',
     'bio_text',
     'whatsapp_url',

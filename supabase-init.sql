@@ -92,8 +92,9 @@ create table if not exists site_settings (
 
 insert into site_settings (key, value) values
   ('site_name', 'Portfolio'),
+  ('bio_name', 'Federico Azzarito'),
   ('bio_title', 'Fotografo'),
-  ('bio_text', 'Sono un fotografo che lavora con luce naturale e progetti editoriali.'),
+  ('bio_text', 'Lavoro con luce naturale e progetti editoriali. Questo spazio è pensato per una selezione ristretta di clienti, galleristi e appassionati.'),
   ('bio_avatar_path', ''),
   ('whatsapp_url', 'https://whatsapp.com/channel/0029Vb7Mv0sLNSa7YKQ6Rp1D'),
   ('telegram_url', 'https://t.me/+rAqV5qdADV04OTk0'),
