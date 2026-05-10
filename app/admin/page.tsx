@@ -21,6 +21,7 @@ import {
 import PhotoUploader from './PhotoUploader';
 import SubmitButton from './SubmitButton';
 import SaveBanner from './SaveBanner';
+import DraggableList from './DraggableList';
 
 export const metadata: Metadata = { title: 'Admin' };
 export const dynamic = 'force-dynamic';
@@ -272,12 +273,18 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
             </div>
           </form>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {(folders.data ?? []).map((f) => {
+          <p className="text-[10px] uppercase tracking-[0.24em] text-muted">
+            ⠿ Trascina le cartelle per riordinarle
+          </p>
+          <DraggableList
+            items={folders.data ?? []}
+            type="folder"
+            className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+            renderItem={(f) => {
               const folderPhotos = photosByFolder.get(f.id) ?? [];
               const cover = publicPhotoUrl(f.cover_storage_path);
               return (
-                <div key={f.id} className="rounded-2xl border border-white/10 bg-black/60 p-5">
+                <div className="rounded-2xl border border-white/10 bg-black/60 p-5">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-xs uppercase tracking-[0.24em] text-muted">/{f.slug}</p>
@@ -307,38 +314,45 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
                       <PhotoUploader folderId={f.id} folderSlug={f.slug} />
                     </div>
 
-                    <ul className="mt-3 space-y-2">
-                      {folderPhotos.map((p) => (
-                        <li
-                          key={p.id}
-                          className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-2 text-xs"
-                        >
-                          <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white/5">
-                            {publicPhotoUrl(p.storage_path) ? (
-                              <Image
-                                src={publicPhotoUrl(p.storage_path)!}
-                                alt=""
-                                fill
-                                sizes="64px"
-                                className="object-cover"
-                              />
-                            ) : null}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-white">{p.caption ?? '— senza didascalia —'}</p>
-                            <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
-                              {p.hi_res_storage_path ? 'hi-res disponibile' : 'solo preview'}
-                            </p>
-                          </div>
-                          <form action={deletePhoto}>
-                            <input type="hidden" name="id" value={p.id} />
-                            <button className="text-[10px] uppercase tracking-[0.2em] text-rose-300 hover:underline">
-                              Elimina
-                            </button>
-                          </form>
-                        </li>
-                      ))}
-                    </ul>
+                    {folderPhotos.length > 0 && (
+                      <>
+                        <p className="mt-3 text-[10px] uppercase tracking-[0.24em] text-muted">
+                          ⠿ Trascina per riordinare le foto
+                        </p>
+                        <DraggableList
+                          items={folderPhotos}
+                          type="photo"
+                          className="mt-1 space-y-2"
+                          renderItem={(p) => (
+                            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black/40 p-2 text-xs">
+                              <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white/5">
+                                {publicPhotoUrl(p.storage_path) ? (
+                                  <Image
+                                    src={publicPhotoUrl(p.storage_path)!}
+                                    alt=""
+                                    fill
+                                    sizes="64px"
+                                    className="object-cover"
+                                  />
+                                ) : null}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-white">{p.caption ?? '— senza didascalia —'}</p>
+                                <p className="text-[10px] uppercase tracking-[0.2em] text-muted">
+                                  {p.hi_res_storage_path ? 'hi-res ✓' : 'solo preview'}
+                                </p>
+                              </div>
+                              <form action={deletePhoto}>
+                                <input type="hidden" name="id" value={p.id} />
+                                <button className="text-[10px] uppercase tracking-[0.2em] text-rose-300 hover:underline">
+                                  Elimina
+                                </button>
+                              </form>
+                            </div>
+                          )}
+                        />
+                      </>
+                    )}
                   </details>
 
                   <Link
@@ -349,8 +363,8 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
                   </Link>
                 </div>
               );
-            })}
-          </div>
+            }}
+          />
         </Section>
 
         {/* IMPOSTAZIONI */}

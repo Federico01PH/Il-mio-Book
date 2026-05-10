@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import supabaseAdmin from '../../../lib/supabaseServer';
 import { sendAccessRequestNotification } from '../../../lib/mailer';
+import { notifyNewAccessRequest } from '../../../lib/telegram';
 import { randomToken } from '../../../lib/auth';
 import { SESSION_COOKIE } from '../../../lib/session';
 
@@ -44,12 +45,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: error?.message ?? 'Errore di salvataggio' }, { status: 500 });
   }
 
-  // Notifica admin (l'utente NON riceve email)
-  try {
-    await sendAccessRequestNotification(data.id, parsed.email, parsed.reason);
-  } catch (sendError) {
-    console.error('[request-access] invio email admin fallito:', sendError);
-  }
+  // Notifica admin via email e Telegram (l'utente NON riceve nulla)
+  await Promise.allSettled([
+    sendAccessRequestNotification(data.id, parsed.email, parsed.reason).catch((e) =>
+      console.error('[request-access] email admin fallita:', e)
+    ),
+    notifyNewAccessRequest({ requestId: data.id, email: parsed.email, reason: parsed.reason }).catch(
+      (e) => console.error('[request-access] telegram fallito:', e)
+    )
+  ]);
 
   // Cookie con il token: l'utente sarà sbloccato automaticamente quando lo status diventa approved
   const response = NextResponse.json({ success: true });

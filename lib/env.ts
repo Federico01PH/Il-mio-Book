@@ -41,6 +41,12 @@ export const env = {
   },
   get siteName() {
     return optional('NEXT_PUBLIC_SITE_NAME', 'Portfolio');
+  },
+  get telegramBotToken() {
+    return optional('TELEGRAM_BOT_TOKEN');
+  },
+  get telegramChatId() {
+    return optional('TELEGRAM_CHAT_ID');
   }
 };
 
