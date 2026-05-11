@@ -25,7 +25,8 @@
       "Bash(dir *)",
       "Bash(Get-ChildItem -Recurse -Path \"C:\\\\Users\\\\Fede\\\\Desktop\\\\Programmazione\\\\Il-mio-Book\\\\app\" -File)",
       "Bash(Select-Object Name, FullName)",
-      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Fede\\\\Desktop\\\\Programmazione\\\\Il-mio-Book\" -Recurse -Name -ErrorAction SilentlyContinue)"
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Fede\\\\Desktop\\\\Programmazione\\\\Il-mio-Book\" -Recurse -Name -ErrorAction SilentlyContinue)",
+      "Bash(node -e \"require\\('sharp'\\); console.log\\('sharp ok'\\)\")"
     ]
   }
 }

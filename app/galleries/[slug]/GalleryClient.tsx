@@ -66,14 +66,17 @@ export default function GalleryClient({
             className="break-inside-avoid mb-2 group relative cursor-zoom-in"
             onClick={() => setOpenId(photo.id)}
           >
-            <div className="relative transition-transform duration-300 ease-out group-hover:scale-[1.04] group-hover:shadow-2xl group-hover:z-10 rounded-lg">
+            <div className="relative transition-transform duration-300 ease-out group-hover:scale-[1.04] group-hover:shadow-2xl group-hover:z-10 rounded-lg bg-gray-100">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photo.src}
                 alt={photo.caption ?? ''}
-                className="w-full h-auto block rounded-lg select-none"
+                className="w-full h-auto block rounded-lg select-none opacity-0"
+                style={{ transition: 'opacity 0.35s ease' }}
                 loading={index < 8 ? 'eager' : 'lazy'}
+                decoding="async"
                 draggable={false}
+                onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '1'; }}
               />
               {/* Overlay: blocca drag e click destro */}
               <div
