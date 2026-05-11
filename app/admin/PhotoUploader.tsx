@@ -8,10 +8,57 @@ interface FileItem {
   file: File;
   preview: string;
   caption: string;
-  hiResFile: File | null;
-  progress: number; // 0-100
+  progress: number;      // 0-100
   status: 'idle' | 'uploading' | 'done' | 'error';
   error?: string;
+}
+
+/** Comprime l'immagine a max 1200 px lato lungo, JPEG 80% via Canvas. */
+function compressToJpeg(file: File, maxPx = 1200, quality = 0.8): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+      const w = Math.max(1, Math.round(img.naturalWidth  * scale));
+      const h = Math.max(1, Math.round(img.naturalHeight * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width  = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Canvas non disponibile'));
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => blob ? resolve(blob) : reject(new Error('Compressione fallita')),
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Impossibile leggere il file')); };
+    img.src = url;
+  });
+}
+
+/** Upload via XHR con tracking progresso; risolve {ok, error}. */
+function xhrPut(
+  url: string,
+  body: Blob,
+  contentType: string,
+  onProgress: (pct: number) => void
+): Promise<{ ok: boolean; status: number; text: string }> {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload  = () => resolve({ ok: xhr.status < 300, status: xhr.status, text: xhr.responseText });
+    xhr.onerror = () => resolve({ ok: false, status: 0, text: 'Errore di rete' });
+    xhr.open('PUT', url);
+    xhr.setRequestHeader('Content-Type', contentType);
+    xhr.setRequestHeader('x-upsert', 'false');
+    xhr.send(body);
+  });
 }
 
 export default function PhotoUploader({
@@ -21,11 +68,15 @@ export default function PhotoUploader({
   folderId: string;
   folderSlug: string;
 }) {
-  const router = useRouter();
-  const [items, setItems] = useState<FileItem[]>([]);
-  const [uploading, setUploading] = useState(false);
-  const [summary, setSummary] = useState('');
+  const router   = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [items, setItems]       = useState<FileItem[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [summary, setSummary]   = useState('');
+
+  function updateItem(id: string, patch: Partial<FileItem>) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  }
 
   function onFilesSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -34,7 +85,6 @@ export default function PhotoUploader({
       file: f,
       preview: URL.createObjectURL(f),
       caption: '',
-      hiResFile: null,
       progress: 0,
       status: 'idle'
     }));
@@ -44,76 +94,111 @@ export default function PhotoUploader({
 
   function removeItem(id: string) {
     setItems((prev) => {
-      const item = prev.find((i) => i.id === id);
-      if (item) URL.revokeObjectURL(item.preview);
+      const it = prev.find((i) => i.id === id);
+      if (it) URL.revokeObjectURL(it.preview);
       return prev.filter((i) => i.id !== id);
     });
   }
 
-  function updateItem(id: string, patch: Partial<FileItem>) {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
-  }
+  async function uploadOne(item: FileItem): Promise<'done' | 'error'> {
+    const fail = (msg: string) => {
+      updateItem(item.id, { status: 'error', error: msg, progress: 0 });
+      return 'error' as const;
+    };
 
-  function uploadOne(item: FileItem): Promise<'done' | 'error'> {
-    return new Promise((resolve) => {
-      const fd = new FormData();
-      fd.append('folderId', folderId);
-      fd.append('file', item.file);
-      if (item.caption) fd.append('caption', item.caption);
-      if (item.hiResFile) fd.append('hiRes', item.hiResFile);
+    updateItem(item.id, { status: 'uploading', progress: 3 });
 
-      const xhr = new XMLHttpRequest();
+    // ── 1. Comprimi preview (Canvas, max 1200 px, JPEG 80%) ──────────────
+    let previewBlob: Blob;
+    try {
+      previewBlob = await compressToJpeg(item.file);
+    } catch (e) {
+      return fail(`Compressione fallita: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    updateItem(item.id, { progress: 10 });
 
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) {
-          updateItem(item.id, { progress: Math.round((e.loaded / e.total) * 90) });
-        }
-      };
+    // ── 2. Ottieni URL firmati da Supabase (piccola richiesta JSON) ───────
+    let previewSignedUrl: string, hiResSignedUrl: string;
+    let previewPath: string, hiResPath: string;
+    try {
+      const res = await fetch('/api/admin/sign-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderId, filename: item.file.name })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return fail(body.message ?? `sign-upload errore ${res.status}`);
+      }
+      ({ previewSignedUrl, previewPath, hiResSignedUrl, hiResPath } = await res.json());
+    } catch {
+      return fail('Errore di rete (sign-upload)');
+    }
+    updateItem(item.id, { progress: 15 });
 
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) {
-          updateItem(item.id, { status: 'done', progress: 100 });
-          resolve('done');
-        } else {
-          let msg = `Errore ${xhr.status}`;
-          try {
-            const body = JSON.parse(xhr.responseText);
-            msg = body.message ?? msg;
-          } catch {}
-          updateItem(item.id, { status: 'error', error: msg, progress: 0 });
-          resolve('error');
-        }
-      };
+    // ── 3. Upload preview compressa → Supabase photos bucket (0-65%) ─────
+    const previewResult = await xhrPut(
+      previewSignedUrl,
+      previewBlob,
+      'image/jpeg',
+      (pct) => updateItem(item.id, { progress: 15 + Math.round(pct * 0.5) })
+    );
+    if (!previewResult.ok) {
+      return fail(`Upload preview fallito (${previewResult.status})`);
+    }
+    updateItem(item.id, { progress: 65 });
 
-      xhr.onerror = () => {
-        updateItem(item.id, { status: 'error', error: 'Errore di rete', progress: 0 });
-        resolve('error');
-      };
+    // ── 4. Upload originale → Supabase hi-res bucket (65-90%) ────────────
+    const hiResResult = await xhrPut(
+      hiResSignedUrl,
+      item.file,
+      item.file.type || 'image/jpeg',
+      (pct) => updateItem(item.id, { progress: 65 + Math.round(pct * 0.25) })
+    );
+    if (!hiResResult.ok) {
+      // Non bloccante: procediamo comunque
+      console.warn('[PhotoUploader] hi-res upload fallito:', hiResResult.status);
+      hiResPath = '';
+    }
+    updateItem(item.id, { progress: 90 });
 
-      xhr.open('POST', '/api/admin/upload-photo');
-      xhr.send(fd);
-      updateItem(item.id, { status: 'uploading', progress: 5 });
-    });
+    // ── 5. Registra nel DB ────────────────────────────────────────────────
+    try {
+      const res = await fetch('/api/admin/finalize-upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          folderId,
+          previewPath,
+          hiResPath: hiResPath || null,
+          caption: item.caption || null
+        })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return fail(body.message ?? `DB error ${res.status}`);
+      }
+    } catch {
+      return fail('Errore di rete (finalize)');
+    }
+
+    updateItem(item.id, { status: 'done', progress: 100 });
+    return 'done';
   }
 
   async function uploadAll() {
     const toUpload = items.filter((it) => it.status === 'idle');
-    if (toUpload.length === 0 || uploading) return;
+    if (!toUpload.length || uploading) return;
     setUploading(true);
     setSummary('');
 
-    // Upload sequenziale: Supabase Storage su free tier non regge connessioni
-    // simultanee dal medesimo processo Node.js → fetch failed su 3+ concorrenti.
-    let done = 0;
-    let errors = 0;
-
+    let done = 0, errors = 0;
     for (const it of toUpload) {
       const r = await uploadOne(it);
       r === 'done' ? done++ : errors++;
     }
 
     setUploading(false);
-
     if (errors === 0) {
       setSummary(`✓ ${done} ${done === 1 ? 'foto caricata' : 'foto caricate'}`);
       setTimeout(() => {
@@ -153,7 +238,7 @@ export default function PhotoUploader({
         )}
 
         {uploading && (
-          <span className="text-xs uppercase tracking-[0.24em] text-white/70 animate-pulse">
+          <span className="animate-pulse text-xs uppercase tracking-[0.24em] text-white/70">
             Caricamento in corso…
           </span>
         )}
@@ -173,7 +258,7 @@ export default function PhotoUploader({
         onChange={onFilesSelected}
       />
 
-      {/* Griglia file */}
+      {/* Griglia preview */}
       {items.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {items.map((it) => (
@@ -191,8 +276,6 @@ export default function PhotoUploader({
               <div className="relative mb-2 h-32 w-full overflow-hidden rounded-lg bg-white/5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={it.preview} alt="" className="h-full w-full object-cover" />
-
-                {/* Barra progresso */}
                 {it.status === 'uploading' && (
                   <div className="absolute inset-x-0 bottom-0 h-1 bg-black/60">
                     <div
@@ -201,11 +284,8 @@ export default function PhotoUploader({
                     />
                   </div>
                 )}
-
                 {it.status === 'done' && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xl">
-                    ✓
-                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-xl">✓</div>
                 )}
               </div>
 
@@ -217,22 +297,6 @@ export default function PhotoUploader({
                 disabled={uploading || it.status !== 'idle'}
                 className="mb-2 w-full rounded-lg border border-white/10 bg-white/5 px-2 py-1.5 text-xs text-white outline-none focus:border-white/30 disabled:opacity-40"
               />
-
-              {/* Hi-res */}
-              {it.status === 'idle' && (
-                <label className="flex cursor-pointer items-center text-xs text-muted hover:text-white">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={uploading}
-                    onChange={(e) => updateItem(it.id, { hiResFile: e.target.files?.[0] ?? null })}
-                  />
-                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                    {it.hiResFile ? `Hi-res: ${it.hiResFile.name.slice(0, 16)}…` : '+ Hi-res'}
-                  </span>
-                </label>
-              )}
 
               {it.error && <p className="mt-1 text-xs text-rose-300">{it.error}</p>}
 
