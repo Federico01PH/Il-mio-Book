@@ -8,10 +8,7 @@ import { verify } from '../../lib/auth';
 import { ADMIN_COOKIE } from '../../lib/session';
 import { publicPhotoUrl } from '../../lib/storage';
 import {
-  approveRequest,
-  rejectRequest,
   markHiResSent,
-  revokeAccess,
   createFolder,
   deleteFolder,
   deletePhoto,
@@ -48,19 +45,7 @@ export default async function AdminPage({
   const payload = verify(cookie);
   if (!payload || payload.act !== 'admin-session') redirect('/admin/login');
 
-  const [reqs, approved, hiRes, folders, photos, settingsRows] = await Promise.all([
-    supabaseAdmin
-      .from('access_requests')
-      .select('id,email,reason,status,created_at')
-      .in('status', ['pending', 'rejected'])
-      .order('created_at', { ascending: false })
-      .limit(50),
-    supabaseAdmin
-      .from('access_requests')
-      .select('id,email,ip_address,created_at,consumed_at,session_expires_at')
-      .eq('status', 'approved')
-      .order('consumed_at', { ascending: false })
-      .limit(100),
+  const [hiRes, folders, photos, settingsRows, visitsResult] = await Promise.all([
     supabaseAdmin
       .from('hi_res_requests')
       .select('id,email,message,status,created_at,photo:photo_id(caption,folder:folder_id(name,slug))')
@@ -74,7 +59,12 @@ export default async function AdminPage({
       .from('photos')
       .select('id,folder_id,storage_path,caption,hi_res_storage_path')
       .order('sort_order', { ascending: true }),
-    supabaseAdmin.from('site_settings').select('key,value')
+    supabaseAdmin.from('site_settings').select('key,value'),
+    supabaseAdmin
+      .from('visits')
+      .select('id,page,visited_at')
+      .order('visited_at', { ascending: false })
+      .limit(50)
   ]);
 
   const settings: SettingsMap = {};
@@ -88,6 +78,8 @@ export default async function AdminPage({
     list.push(p);
     photosByFolder.set(p.folder_id, list);
   }
+
+  const visits = visitsResult.data ?? [];
 
   return (
     <main className="min-h-screen bg-surface px-6 py-12 text-text">
@@ -107,87 +99,21 @@ export default async function AdminPage({
 
         <StorageChecker />
 
-        {/* CHI HA ACCESSO */}
-        <Section title={`Chi ha accesso (${(approved.data ?? []).length})`}>
-          {(approved.data ?? []).length === 0 ? (
-            <Empty>Nessun utente approvato.</Empty>
+        {/* VISITE */}
+        <Section title={`Visite recenti (${visits.length})`}>
+          {visits.length === 0 ? (
+            <Empty>Nessuna visita registrata. Crea la tabella <code className="text-xs">visits</code> con il file supabase-init.sql.</Empty>
           ) : (
             <ul className="space-y-2">
-              {approved.data!.map((r) => (
+              {visits.map((v) => (
                 <li
-                  key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/60 px-5 py-4 text-sm"
+                  key={v.id}
+                  className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/60 px-5 py-3 text-sm"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium text-white">{r.email}</p>
-                    <p className="text-xs text-muted">
-                      IP: {r.ip_address ?? '—'} · Richiesta:{' '}
-                      {new Date(r.created_at).toLocaleDateString('it-IT')} · Approvato:{' '}
-                      {r.consumed_at
-                        ? new Date(r.consumed_at).toLocaleDateString('it-IT')
-                        : '—'} ·{' '}
-                      {r.session_expires_at
-                        ? `Scade ${new Date(r.session_expires_at).toLocaleDateString('it-IT')}`
-                        : 'Accesso permanente'}
-                    </p>
-                  </div>
-                  <form action={revokeAccess}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-1.5 text-xs uppercase tracking-[0.2em] text-rose-200 hover:bg-rose-400/20">
-                      Revoca
-                    </button>
-                  </form>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Section>
-
-        {/* RICHIESTE ACCESSO */}
-        <Section title="Richieste di accesso">
-          {(reqs.data ?? []).length === 0 ? (
-            <Empty>Nessuna richiesta.</Empty>
-          ) : (
-            <ul className="space-y-3">
-              {reqs.data!.map((r) => (
-                <li
-                  key={r.id}
-                  className="rounded-2xl border border-white/10 bg-black/60 p-4 text-sm"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="font-medium text-white">{r.email}</p>
-                      <p className="text-xs text-muted">{new Date(r.created_at).toLocaleString('it-IT')}</p>
-                    </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs uppercase tracking-[0.2em] ${
-                        r.status === 'approved'
-                          ? 'bg-emerald-500/15 text-emerald-300'
-                          : r.status === 'rejected'
-                          ? 'bg-rose-500/15 text-rose-300'
-                          : 'bg-white/10 text-white/80'
-                      }`}
-                    >
-                      {r.status}
-                    </span>
-                  </div>
-                  <p className="mt-3 whitespace-pre-line text-sm text-muted">{r.reason}</p>
-                  {r.status === 'pending' ? (
-                    <div className="mt-4 flex gap-2">
-                      <form action={approveRequest}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <button className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-200 hover:bg-emerald-400/20">
-                          Approva
-                        </button>
-                      </form>
-                      <form action={rejectRequest}>
-                        <input type="hidden" name="id" value={r.id} />
-                        <button className="rounded-full border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-rose-200 hover:bg-rose-400/20">
-                          Rifiuta
-                        </button>
-                      </form>
-                    </div>
-                  ) : null}
+                  <span className="font-medium text-white">{v.page}</span>
+                  <span className="text-xs text-muted shrink-0">
+                    {new Date(v.visited_at).toLocaleString('it-IT')}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -201,13 +127,9 @@ export default async function AdminPage({
           ) : (
             <ul className="space-y-3">
               {hiRes.data!.map((r) => {
-                const photo = Array.isArray(r.photo)
-                  ? (r.photo[0] as any)
-                  : (r.photo as any);
+                const photo = Array.isArray(r.photo) ? (r.photo[0] as any) : (r.photo as any);
                 const folder = photo?.folder
-                  ? Array.isArray(photo.folder)
-                    ? photo.folder[0]
-                    : photo.folder
+                  ? Array.isArray(photo.folder) ? photo.folder[0] : photo.folder
                   : null;
                 return (
                   <li key={r.id} className="rounded-2xl border border-white/10 bg-black/60 p-4 text-sm">
@@ -244,7 +166,7 @@ export default async function AdminPage({
         <Section title="Cartelle">
           <form
             action={createFolder}
-className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid-cols-2"
+            className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid-cols-2"
           >
             <label className="block text-xs text-muted">
               Nome cartella
@@ -291,7 +213,6 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
                       <h3 className="text-lg font-semibold text-white">{f.name}</h3>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Ordine ▲▼ */}
                       <div className="flex flex-col gap-0.5">
                         {prevFolder && (
                           <form action={swapFolderOrder}>
@@ -379,7 +300,7 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
                   </details>
 
                   <Link href={`/galleries/${f.slug}`} className="mt-3 inline-block text-xs uppercase tracking-[0.2em] text-white/70 hover:text-white">
-                    Apri pagina pubblica →
+                    Apri galleria →
                   </Link>
                 </div>
               );
@@ -391,35 +312,17 @@ className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid
         <Section title="Impostazioni sito & contatti">
           <form
             action={updateSettings}
-className="grid gap-4 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid-cols-2"
+            className="grid gap-4 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid-cols-2"
           >
             <Field label="Nome sito" name="site_name" defaultValue={settings.site_name} />
             <Field label="Nome (es. Federico Azzarito)" name="bio_name" defaultValue={settings.bio_name} />
             <Field label="Ruolo (es. Fotografo)" name="bio_title" defaultValue={settings.bio_title} />
-            <Textarea
-              label="Testo bio"
-              name="bio_text"
-              defaultValue={settings.bio_text}
-              className="sm:col-span-2"
-            />
-            <Field
-              label="WhatsApp URL (es. https://wa.me/393…)"
-              name="whatsapp_url"
-              defaultValue={settings.whatsapp_url}
-            />
-            <Field
-              label="Telegram URL (es. https://t.me/utente)"
-              name="telegram_url"
-              defaultValue={settings.telegram_url}
-            />
-            <Field
-              label="Instagram URL"
-              name="instagram_url"
-              defaultValue={settings.instagram_url}
-              className="sm:col-span-2"
-            />
+            <Textarea label="Testo bio" name="bio_text" defaultValue={settings.bio_text} className="sm:col-span-2" />
+            <Field label="WhatsApp URL" name="whatsapp_url" defaultValue={settings.whatsapp_url} />
+            <Field label="Telegram URL" name="telegram_url" defaultValue={settings.telegram_url} />
+            <Field label="Instagram URL" name="instagram_url" defaultValue={settings.instagram_url} className="sm:col-span-2" />
             <label className="block text-xs text-muted sm:col-span-2">
-              Avatar bio (opzionale, sostituisce quello esistente)
+              Avatar bio (sostituisce quello esistente)
               <input
                 type="file"
                 name="bio_avatar"
@@ -454,17 +357,7 @@ function Empty({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Field({
-  label,
-  name,
-  defaultValue,
-  className
-}: {
-  label: string;
-  name: string;
-  defaultValue?: string;
-  className?: string;
-}) {
+function Field({ label, name, defaultValue, className }: { label: string; name: string; defaultValue?: string; className?: string }) {
   return (
     <label className={`block text-xs text-muted ${className ?? ''}`}>
       {label}
@@ -477,17 +370,7 @@ function Field({
   );
 }
 
-function Textarea({
-  label,
-  name,
-  defaultValue,
-  className
-}: {
-  label: string;
-  name: string;
-  defaultValue?: string;
-  className?: string;
-}) {
+function Textarea({ label, name, defaultValue, className }: { label: string; name: string; defaultValue?: string; className?: string }) {
   return (
     <label className={`block text-xs text-muted ${className ?? ''}`}>
       {label}

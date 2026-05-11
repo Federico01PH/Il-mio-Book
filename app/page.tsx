@@ -1,30 +1,10 @@
-import AccessGate from '../components/AccessGate';
-import PendingGate from '../components/PendingGate';
 import InternalHome from '../components/InternalHome';
-import { getActiveSession, getRequestStatus } from '../lib/session';
 import supabaseAdmin from '../lib/supabaseServer';
 import { publicPhotoUrl } from '../lib/storage';
 
 export const dynamic = 'force-dynamic';
 
 export default async function Page() {
-  const session = await getActiveSession();
-
-  if (!session) {
-    const status = await getRequestStatus();
-    return (
-      <main className="min-h-screen bg-surface text-text">
-        {status === 'pending' ? (
-          <PendingGate />
-        ) : status === 'rejected' ? (
-          <PendingGate rejected />
-        ) : (
-          <AccessGate />
-        )}
-      </main>
-    );
-  }
-
   const [{ data: folders }, { data: settingsRows }] = await Promise.all([
     supabaseAdmin
       .from('folders')

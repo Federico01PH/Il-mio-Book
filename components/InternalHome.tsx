@@ -93,7 +93,6 @@ export default function InternalHome({
             <nav className="hidden md:flex space-x-4 text-sm uppercase tracking-[0.24em] text-white/90">
               <Link href="/galleries" className="transition hover:text-white">Gallerie</Link>
               <button onClick={scrollToBio} className="transition hover:text-white">Bio</button>
-              <button onClick={logout} className="text-white/70 hover:text-white">Esci</button>
             </nav>
             <button
               onClick={() => setMenuOpen((v) => !v)}
@@ -115,7 +114,6 @@ export default function InternalHome({
                 <ul className="space-y-3 text-sm uppercase tracking-[0.24em] text-white/90">
                   <li><Link href="/galleries" onClick={() => setMenuOpen(false)} className="block py-1">Gallerie</Link></li>
                   <li><button onClick={scrollToBio} className="block py-1">Bio</button></li>
-                  <li><button onClick={logout} className="block py-1 text-white/70">Esci</button></li>
                 </ul>
               </motion.nav>
             )}

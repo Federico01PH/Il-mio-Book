@@ -21,7 +21,11 @@
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "Bash(dir *)",
+      "Bash(Get-ChildItem -Recurse -Path \"C:\\\\Users\\\\Fede\\\\Desktop\\\\Programmazione\\\\Il-mio-Book\\\\app\" -File)",
+      "Bash(Select-Object Name, FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\Fede\\\\Desktop\\\\Programmazione\\\\Il-mio-Book\" -Recurse -Name -ErrorAction SilentlyContinue)"
     ]
   }
 }

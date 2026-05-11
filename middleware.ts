@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE, ADMIN_COOKIE } from './lib/session';
 
-const PROTECTED_PREFIXES = ['/galleries', '/bio'];
+const PROTECTED_PREFIXES: string[] = []; // gallerie e bio ora pubbliche
 const ADMIN_PREFIX = '/admin';
 const ADMIN_LOGIN = '/admin/login';
 

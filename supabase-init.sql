@@ -158,3 +158,15 @@ begin
 end $$;
 
 -- Il bucket "hi-res" rimane privato: solo il service_role (server) vi accede.
+
+-- =====================================================================
+-- Log visite (gallerie)
+-- =====================================================================
+create table if not exists visits (
+  id uuid primary key default gen_random_uuid(),
+  page text not null,
+  visited_at timestamptz not null default now()
+);
+create index if not exists visits_visited_at_idx on visits(visited_at desc);
+alter table visits enable row level security;
+-- Il service_role bypassa RLS, quindi le insert server-side funzionano.

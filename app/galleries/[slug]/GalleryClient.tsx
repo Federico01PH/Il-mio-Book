@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useState, useCallback } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 
 export interface GalleryPhoto {
@@ -14,17 +13,14 @@ export interface GalleryPhoto {
 
 export default function GalleryClient({ photos }: { photos: GalleryPhoto[] }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [hoverId, setHoverId] = useState<string | null>(null);
-  const [isTouch, setIsTouch] = useState(false);
+  const [hiResEmail, setHiResEmail] = useState('');
   const [hiResMessage, setHiResMessage] = useState('');
   const [hiResSubmitting, setHiResSubmitting] = useState(false);
 
-  useEffect(() => {
-    const mq = window.matchMedia('(hover: none)');
-    setIsTouch(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsTouch(e.matches);
-    mq.addEventListener('change', handler);
-    return () => mq.removeEventListener('change', handler);
+  const open = openId ? photos.find((p) => p.id === openId) ?? null : null;
+
+  const showProtectionMsg = useCallback(() => {
+    toast('Vuoi questa foto? Contattami tramite i social o via email 📩', { duration: 5000 });
   }, []);
 
   useEffect(() => {
@@ -45,30 +41,32 @@ export default function GalleryClient({ photos }: { photos: GalleryPhoto[] }) {
     if (idx === -1) return;
     const next = (idx + delta + photos.length) % photos.length;
     setOpenId(photos[next].id);
+    setHiResEmail('');
     setHiResMessage('');
   }
 
-  const open = openId ? photos.find((p) => p.id === openId) ?? null : null;
-  const hover = !isTouch && hoverId ? photos.find((p) => p.id === hoverId) ?? null : null;
-
   async function submitHiRes() {
     if (!open) return;
+    if (!hiResEmail.trim() || !hiResEmail.includes('@')) {
+      toast.error('Inserisci un indirizzo email valido.');
+      return;
+    }
     setHiResSubmitting(true);
     try {
       const res = await fetch('/api/hi-res-request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photoId: open.id, message: hiResMessage || undefined })
+        body: JSON.stringify({ photoId: open.id, email: hiResEmail.trim(), message: hiResMessage || undefined })
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         toast.error(body.message ?? 'Invio fallito.');
         return;
       }
-      toast.success('Richiesta inviata. Riceverai una risposta via email.');
+      toast.success('Richiesta inviata. Verrai contattato presto.');
+      setHiResEmail('');
       setHiResMessage('');
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error('Errore di rete.');
     } finally {
       setHiResSubmitting(false);
@@ -77,133 +75,125 @@ export default function GalleryClient({ photos }: { photos: GalleryPhoto[] }) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {photos.map((photo) => (
-          <button
+      {/* ── Masonry grid ── */}
+      <div className="columns-1 sm:columns-2 lg:columns-3 gap-x-3">
+        {photos.map((photo, index) => (
+          <div
             key={photo.id}
-            type="button"
+            className="break-inside-avoid mb-3 group relative cursor-zoom-in"
             onClick={() => setOpenId(photo.id)}
-            onMouseEnter={() => setHoverId(photo.id)}
-            onMouseLeave={() => setHoverId((id) => (id === photo.id ? null : id))}
-            className="group relative overflow-hidden rounded-[28px] border border-white/10 bg-black/70 p-0 text-left transition hover:-translate-y-0.5 hover:border-white/20"
           >
-            <div className="relative h-80 w-full overflow-hidden">
-              <Image
+            <div className="relative transition-transform duration-300 ease-out group-hover:scale-[1.04] group-hover:shadow-2xl group-hover:z-10 rounded-xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
                 src={photo.src}
-                alt={photo.caption ?? 'Foto'}
-                fill
-                sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
-                className="object-cover transition duration-500 group-hover:scale-105"
+                alt={photo.caption ?? ''}
+                className="w-full h-auto block rounded-xl select-none"
+                loading={index < 6 ? 'eager' : 'lazy'}
+                draggable={false}
+              />
+              {/* Overlay trasparente: blocca click destro e drag */}
+              <div
+                className="absolute inset-0 rounded-xl"
+                onContextMenu={(e) => { e.preventDefault(); showProtectionMsg(); }}
+                draggable={false}
               />
             </div>
-            {photo.caption ? (
-              <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-4 py-4">
-                <p className="text-sm font-medium text-white">{photo.caption}</p>
-              </div>
-            ) : null}
-          </button>
+            {photo.caption && (
+              <p className="mt-1.5 text-xs text-gray-400 px-0.5 select-none">{photo.caption}</p>
+            )}
+          </div>
         ))}
       </div>
 
-      {/* Mouse-only floating preview */}
+      {/* ── Lightbox ── */}
       <AnimatePresence>
-        {hover ? (
-          <motion.div
-            key={hover.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ duration: 0.25 }}
-            className="pointer-events-none fixed bottom-6 right-6 hidden h-64 w-64 overflow-hidden rounded-3xl border border-white/15 bg-black/80 shadow-2xl shadow-black/50 lg:block"
-          >
-            <Image src={hover.src} alt="" fill sizes="256px" className="object-cover" />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      {/* Lightbox */}
-      <AnimatePresence>
-        {open ? (
+        {open && (
           <motion.div
             key="lightbox"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-4"
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/96 p-4"
             onClick={() => setOpenId(null)}
           >
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpenId(null);
-              }}
-              aria-label="Chiudi"
-              className="absolute right-4 top-4 rounded-full border border-white/15 bg-black/60 px-4 py-2 text-xs uppercase tracking-[0.24em] text-white hover:bg-black/80"
+              onClick={(e) => { e.stopPropagation(); setOpenId(null); }}
+              className="absolute right-5 top-5 text-white/50 hover:text-white text-xs uppercase tracking-[0.24em] transition"
             >
-              Chiudi
+              Chiudi ×
             </button>
 
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                step(-1);
-              }}
-              aria-label="Precedente"
-              className="absolute left-4 top-1/2 -translate-y-1/2 rounded-full border border-white/15 bg-black/60 px-4 py-3 text-white hover:bg-black/80"
-            >
-              ‹
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                step(1);
-              }}
-              aria-label="Successiva"
-              className="absolute right-4 top-1/2 -translate-y-1/2 rounded-full border border-white/15 bg-black/60 px-4 py-3 text-white hover:bg-black/80"
-            >
-              ›
-            </button>
+            {photos.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); step(-1); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-4 text-4xl text-white/40 hover:text-white transition"
+                >‹</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); step(1); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-4 text-4xl text-white/40 hover:text-white transition"
+                >›</button>
+              </>
+            )}
 
             <div
-              className="relative flex max-h-full w-full max-w-6xl flex-col items-center gap-4"
+              className="flex flex-col items-center gap-5 w-full max-w-5xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="relative max-h-[75vh] w-full">
+              {/* Immagine a schermo pieno */}
+              <div className="relative flex items-center justify-center max-h-[78vh]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={open.src}
                   alt={open.caption ?? ''}
-                  className="mx-auto max-h-[75vh] w-auto rounded-2xl object-contain"
+                  className="max-h-[78vh] max-w-full w-auto h-auto rounded-2xl select-none block"
+                  draggable={false}
+                />
+                <div
+                  className="absolute inset-0 rounded-2xl"
+                  onContextMenu={(e) => { e.preventDefault(); showProtectionMsg(); }}
+                  draggable={false}
                 />
               </div>
 
-              <div className="w-full max-w-3xl space-y-3 rounded-3xl border border-white/10 bg-black/60 p-6">
-                {open.caption ? (
-                  <p className="text-sm text-white/90">{open.caption}</p>
-                ) : null}
-                {open.hasHiRes ? (
-                  <div className="space-y-3">
-                    <p className="text-xs uppercase tracking-[0.28em] text-muted">Versione alta risoluzione</p>
-                    <textarea
-                      value={hiResMessage}
-                      onChange={(e) => setHiResMessage(e.target.value)}
-                      rows={2}
-                      placeholder="Messaggio facoltativo per il fotografo"
-                      className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none focus:border-white/40"
-                    />
-                    <button
-                      onClick={submitHiRes}
-                      disabled={hiResSubmitting}
-                      className="inline-flex items-center justify-center rounded-full bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-black hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {hiResSubmitting ? 'Invio…' : 'Richiedi alta risoluzione'}
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              {(open.caption || open.hasHiRes) && (
+                <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-black/70 p-5 space-y-4">
+                  {open.caption && (
+                    <p className="text-sm text-white/80">{open.caption}</p>
+                  )}
+                  {open.hasHiRes && (
+                    <div className="space-y-3">
+                      <p className="text-[10px] uppercase tracking-[0.28em] text-white/40">Richiedi alta risoluzione</p>
+                      <input
+                        type="email"
+                        value={hiResEmail}
+                        onChange={(e) => setHiResEmail(e.target.value)}
+                        placeholder="La tua email"
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/30"
+                      />
+                      <textarea
+                        value={hiResMessage}
+                        onChange={(e) => setHiResMessage(e.target.value)}
+                        rows={2}
+                        placeholder="Messaggio opzionale"
+                        className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder-white/30 outline-none focus:border-white/30 resize-none"
+                      />
+                      <button
+                        onClick={submitHiRes}
+                        disabled={hiResSubmitting}
+                        className="rounded-full bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-black hover:bg-white/90 disabled:opacity-50"
+                      >
+                        {hiResSubmitting ? 'Invio…' : 'Invia richiesta'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </motion.div>
-        ) : null}
+        )}
       </AnimatePresence>
     </>
   );

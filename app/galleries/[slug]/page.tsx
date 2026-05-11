@@ -29,13 +29,18 @@ export default async function GalleryDetailPage({ params }: PageProps) {
 
   if (!folder) notFound();
 
-  const { data: photosRaw } = await supabaseAdmin
-    .from('photos')
-    .select('id,storage_path,caption,hi_res_storage_path')
-    .eq('folder_id', folder.id)
-    .order('sort_order', { ascending: true });
+  const [{ data: photosRaw }] = await Promise.all([
+    supabaseAdmin
+      .from('photos')
+      .select('id,storage_path,caption,hi_res_storage_path')
+      .eq('folder_id', folder.id)
+      .order('sort_order', { ascending: true }),
+    // Log visita (best-effort, non bloccante)
+    supabaseAdmin.from('visits').insert({ page: folder.name }).then(() => null, () => null)
+  ]);
 
-  const photos = (photosRaw ?? []).map((p) => ({
+  type PhotoRow = { id: string; storage_path: string; caption: string | null; hi_res_storage_path: string | null };
+  const photos = (photosRaw ?? [] as PhotoRow[]).map((p) => ({
     id: p.id,
     src: publicPhotoUrl(p.storage_path) ?? '',
     caption: p.caption,
@@ -43,25 +48,26 @@ export default async function GalleryDetailPage({ params }: PageProps) {
   }));
 
   return (
-    <main className="min-h-screen bg-surface px-6 py-12 text-text">
-      <section className="container mx-auto space-y-8">
+    <main className="min-h-screen bg-white px-4 py-10 sm:px-6">
+      <section className="mx-auto max-w-6xl space-y-8">
         <div className="flex flex-col gap-3">
-          <Link href="/galleries" className="text-xs uppercase tracking-[0.3em] text-muted hover:text-white">
-            ← Torna alle gallerie
+          <Link
+            href="/galleries"
+            className="text-xs uppercase tracking-[0.3em] text-gray-400 hover:text-gray-700 transition"
+          >
+            ← Gallerie
           </Link>
-          <h1 className="text-4xl font-semibold uppercase tracking-[0.18em]">{folder.name}</h1>
-          {folder.description ? (
-            <p className="max-w-2xl text-sm leading-7 text-muted">{folder.description}</p>
-          ) : (
-            <p className="max-w-2xl text-sm leading-7 text-muted">
-              Seleziona una foto per aprire la vista ampliata. Su desktop si attiva una preview al passaggio del mouse.
-            </p>
+          <h1 className="text-3xl font-semibold text-gray-900 uppercase tracking-[0.18em]">
+            {folder.name}
+          </h1>
+          {folder.description && (
+            <p className="max-w-2xl text-sm leading-7 text-gray-500">{folder.description}</p>
           )}
         </div>
 
         {photos.length === 0 ? (
-          <div className="rounded-[28px] border border-dashed border-white/10 bg-black/40 p-16 text-center text-sm text-muted">
-            Nessuna foto in questa cartella.
+          <div className="rounded-3xl border border-dashed border-gray-200 p-16 text-center text-sm text-gray-400">
+            Nessuna foto in questa galleria.
           </div>
         ) : (
           <GalleryClient photos={photos} />
