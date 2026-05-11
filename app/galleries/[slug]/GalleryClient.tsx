@@ -13,10 +13,30 @@ export interface GalleryPhoto {
 
 const CONTACT_EMAIL = 'fedephazza@gmail.com';
 
+/** Numero colonne in base alla larghezza della finestra */
+function useColumnCount(): number {
+  const [cols, setCols] = useState(2); // mobile-first: 2 col di default (SSR)
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth;
+      setCols(w >= 1280 ? 4 : w >= 768 ? 3 : 2);
+    }
+    update();
+    window.addEventListener('resize', update, { passive: true });
+    return () => window.removeEventListener('resize', update);
+  }, []);
+  return cols;
+}
+
+/** Distribuisce le foto nelle colonne in ordine (come Pinterest) */
+function splitColumns(photos: GalleryPhoto[], count: number): GalleryPhoto[][] {
+  const cols: GalleryPhoto[][] = Array.from({ length: count }, () => []);
+  photos.forEach((p, i) => cols[i % count].push(p));
+  return cols;
+}
+
 function hiresMailto(caption: string | null, folderName: string): string {
-  const subject = encodeURIComponent(
-    `Richiesta foto in alta risoluzione: ${caption ?? folderName}`
-  );
+  const subject = encodeURIComponent(`Richiesta foto in alta risoluzione: ${caption ?? folderName}`);
   const body = encodeURIComponent(
     `Ciao,\n\nVorrei richiedere questa foto in alta risoluzione.\n\nFoto: ${caption ?? '(senza titolo)'}\nCartella: ${folderName}\n\nGrazie!`
   );
@@ -30,6 +50,9 @@ export default function GalleryClient({
   photos: GalleryPhoto[];
   folderName: string;
 }) {
+  const colCount  = useColumnCount();
+  const columns   = splitColumns(photos, colCount);
+
   const [openId, setOpenId] = useState<string | null>(null);
   const open = openId ? photos.find((p) => p.id === openId) ?? null : null;
 
@@ -58,36 +81,42 @@ export default function GalleryClient({
 
   return (
     <>
-      {/* ── Masonry a larghezza piena ── */}
-      <div className="columns-2 lg:columns-3 xl:columns-4 gap-x-1.5 sm:gap-x-2">
-        {photos.map((photo, index) => (
-          <div
-            key={photo.id}
-            className="break-inside-avoid mb-1.5 sm:mb-2 group relative cursor-zoom-in"
-            onClick={() => setOpenId(photo.id)}
-          >
-            <div className="relative transition-transform duration-300 ease-out group-hover:scale-[1.04] group-hover:shadow-2xl group-hover:z-10 rounded-lg bg-gray-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photo.src}
-                alt={photo.caption ?? ''}
-                className="w-full h-auto block rounded-lg select-none opacity-0"
-                style={{ transition: 'opacity 0.35s ease' }}
-                loading={index < 8 ? 'eager' : 'lazy'}
-                decoding="async"
-                draggable={false}
-                onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '1'; }}
-              />
-              {/* Overlay: blocca drag e click destro */}
+      {/* ── Masonry Pinterest: colonne flex ── */}
+      <div className="flex gap-1.5 sm:gap-2">
+        {columns.map((col, colIdx) => (
+          <div key={colIdx} className="flex-1 min-w-0 flex flex-col gap-1.5 sm:gap-2">
+            {col.map((photo, index) => (
               <div
-                className="absolute inset-0 rounded-lg"
-                onContextMenu={(e) => { e.preventDefault(); showProtectionMsg(); }}
-                draggable={false}
-              />
-            </div>
-            {photo.caption && (
-              <p className="mt-1 text-xs text-gray-400 px-0.5 select-none">{photo.caption}</p>
-            )}
+                key={photo.id}
+                className="group relative cursor-zoom-in"
+                onClick={() => setOpenId(photo.id)}
+              >
+                <div className="relative rounded-lg bg-gray-100 overflow-hidden transition-transform duration-300 ease-out group-hover:scale-[1.03] group-hover:shadow-xl">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={photo.src}
+                    alt={photo.caption ?? ''}
+                    className="w-full h-auto block select-none opacity-0"
+                    style={{ transition: 'opacity 0.35s ease' }}
+                    loading={colIdx === 0 && index < 3 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    draggable={false}
+                    onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '1'; }}
+                  />
+                  {/* Overlay protezione */}
+                  <div
+                    className="absolute inset-0"
+                    onContextMenu={(e) => { e.preventDefault(); showProtectionMsg(); }}
+                    draggable={false}
+                  />
+                </div>
+                {photo.caption && (
+                  <p className="mt-1 text-[10px] sm:text-xs text-gray-400 px-0.5 select-none leading-tight">
+                    {photo.caption}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -107,32 +136,24 @@ export default function GalleryClient({
             {/* Chiudi */}
             <button
               onClick={(e) => { e.stopPropagation(); setOpenId(null); }}
-              className="absolute right-5 top-5 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition text-lg"
+              className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition text-xl leading-none"
               aria-label="Chiudi"
-            >
-              ×
-            </button>
+            >×</button>
 
-            {/* Freccia sinistra */}
+            {/* Frecce */}
             {photos.length > 1 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); step(-1); }}
-                className="absolute left-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition text-2xl"
-                aria-label="Precedente"
-              >
-                ‹
-              </button>
-            )}
-
-            {/* Freccia destra */}
-            {photos.length > 1 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); step(1); }}
-                className="absolute right-3 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition text-2xl"
-                aria-label="Successiva"
-              >
-                ›
-              </button>
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); step(-1); }}
+                  className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition text-2xl"
+                  aria-label="Precedente"
+                >‹</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); step(1); }}
+                  className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition text-2xl"
+                  aria-label="Successiva"
+                >›</button>
+              </>
             )}
 
             {/* Contenuto */}
@@ -141,15 +162,14 @@ export default function GalleryClient({
               onClick={(e) => e.stopPropagation()}
             >
               {/* Immagine */}
-              <div className="relative flex items-center justify-center">
+              <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={open.src}
                   alt={open.caption ?? ''}
-                  className="max-h-[80vh] max-w-full w-auto h-auto rounded-xl select-none block"
+                  className="max-h-[78vh] max-w-full w-auto h-auto rounded-xl select-none block"
                   draggable={false}
                 />
-                {/* Protection overlay */}
                 <div
                   className="absolute inset-0 rounded-xl"
                   onContextMenu={(e) => { e.preventDefault(); showProtectionMsg(); }}
@@ -157,15 +177,15 @@ export default function GalleryClient({
                 />
               </div>
 
-              {/* Barra inferiore: caption + bottone hi-res */}
-              <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-2xl">
-                <span className="text-sm text-white/70 truncate">
-                  {open.caption ?? folderName}
-                </span>
+              {/* Barra: caption + bottone hi-res */}
+              <div className="flex flex-wrap items-center justify-between gap-3 w-full max-w-2xl px-1">
+                {open.caption && (
+                  <span className="text-sm text-white/60 truncate">{open.caption}</span>
+                )}
                 <a
                   href={hiresMailto(open.caption, folderName)}
                   onClick={(e) => e.stopPropagation()}
-                  className="shrink-0 rounded-full bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-black hover:bg-white/90 transition"
+                  className="ml-auto shrink-0 rounded-full bg-white px-5 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-black hover:bg-white/90 transition"
                 >
                   Richiedi in alta risoluzione
                 </a>
