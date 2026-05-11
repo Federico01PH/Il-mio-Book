@@ -59,11 +59,11 @@ export default function GalleryClient({
   return (
     <>
       {/* ── Masonry a larghezza piena ── */}
-      <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-x-2">
+      <div className="columns-2 lg:columns-3 xl:columns-4 gap-x-1.5 sm:gap-x-2">
         {photos.map((photo, index) => (
           <div
             key={photo.id}
-            className="break-inside-avoid mb-2 group relative cursor-zoom-in"
+            className="break-inside-avoid mb-1.5 sm:mb-2 group relative cursor-zoom-in"
             onClick={() => setOpenId(photo.id)}
           >
             <div className="relative transition-transform duration-300 ease-out group-hover:scale-[1.04] group-hover:shadow-2xl group-hover:z-10 rounded-lg bg-gray-100">
