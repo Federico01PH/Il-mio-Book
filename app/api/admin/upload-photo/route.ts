@@ -5,6 +5,7 @@ import { verify } from '../../../../lib/auth';
 import { ADMIN_COOKIE } from '../../../../lib/session';
 import { PHOTOS_BUCKET, HIRES_BUCKET } from '../../../../lib/storage';
 import { randomToken } from '../../../../lib/auth';
+import { notifyNewPhoto } from '../../../../lib/telegram';
 
 export const runtime = 'nodejs';
 
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
   // 3. Verifica cartella nel DB
   const { data: folder, error: folderErr } = await supabaseAdmin
     .from('folders')
-    .select('slug')
+    .select('slug,name')
     .eq('id', folderId)
     .single();
 
@@ -163,5 +164,9 @@ export async function POST(request: Request) {
   }
 
   console.log('[upload-photo] OK – path:', photoPath);
+
+  // Notifica Telegram + link WhatsApp (fire and forget)
+  notifyNewPhoto({ folderName: folder.name, folderSlug: folder.slug }).catch(() => null);
+
   return NextResponse.json({ success: true, path: photoPath });
 }

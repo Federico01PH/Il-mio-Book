@@ -53,6 +53,29 @@ export async function notifyNewAccessRequest(params: {
   });
 }
 
+export async function notifyNewPhoto(params: {
+  folderName: string;
+  folderSlug: string;
+}): Promise<void> {
+  if (!isTelegramConfigured()) return;
+
+  const galleryUrl = `${env.siteUrl}/galleries/${params.folderSlug}`;
+  const waText = encodeURIComponent(
+    `È stata aggiunta una nuova foto al Book ${params.folderName}: ${galleryUrl}`
+  );
+  const waShareUrl = `https://wa.me/?text=${waText}`;
+
+  await sendMessage({
+    text:
+      `📷 <b>Nuova foto aggiunta</b>\n\n` +
+      `<b>Cartella:</b> ${escapeHtml(params.folderName)}\n` +
+      `<b>Link galleria:</b> <a href="${galleryUrl}">${galleryUrl}</a>\n\n` +
+      `<a href="${waShareUrl}">📲 Condividi su WhatsApp</a>`,
+    parse_mode: 'HTML',
+    link_preview_options: { is_disabled: true }
+  });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replaceAll('&', '&amp;')

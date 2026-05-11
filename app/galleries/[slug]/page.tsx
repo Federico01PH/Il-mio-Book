@@ -35,7 +35,6 @@ export default async function GalleryDetailPage({ params }: PageProps) {
       .select('id,storage_path,caption,hi_res_storage_path')
       .eq('folder_id', folder.id)
       .order('sort_order', { ascending: true }),
-    // Log visita (best-effort, non bloccante)
     supabaseAdmin.from('visits').insert({ page: folder.name }).then(() => null, () => null)
   ]);
 
@@ -48,8 +47,9 @@ export default async function GalleryDetailPage({ params }: PageProps) {
   }));
 
   return (
-    <main className="min-h-screen bg-white px-4 py-10 sm:px-6">
-      <section className="mx-auto max-w-6xl space-y-8">
+    <main className="min-h-screen bg-white">
+      {/* Header con margini contenuti */}
+      <div className="px-4 pt-10 pb-6 sm:px-6 mx-auto max-w-screen-2xl">
         <div className="flex flex-col gap-3">
           <Link
             href="/galleries"
@@ -64,15 +64,18 @@ export default async function GalleryDetailPage({ params }: PageProps) {
             <p className="max-w-2xl text-sm leading-7 text-gray-500">{folder.description}</p>
           )}
         </div>
+      </div>
 
-        {photos.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-gray-200 p-16 text-center text-sm text-gray-400">
-            Nessuna foto in questa galleria.
-          </div>
-        ) : (
-          <GalleryClient photos={photos} />
-        )}
-      </section>
+      {/* Griglia foto a larghezza piena */}
+      {photos.length === 0 ? (
+        <div className="mx-4 rounded-3xl border border-dashed border-gray-200 p-16 text-center text-sm text-gray-400">
+          Nessuna foto in questa galleria.
+        </div>
+      ) : (
+        <div className="px-2 sm:px-3 pb-12">
+          <GalleryClient photos={photos} folderName={folder.name} />
+        </div>
+      )}
     </main>
   );
 }

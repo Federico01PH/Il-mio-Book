@@ -14,15 +14,18 @@ async function loadSettings(): Promise<Record<string, string>> {
   return map;
 }
 
+const CONTACT_EMAIL = 'fedephazza@gmail.com';
+
 export default async function BioPage() {
   const s = await loadSettings();
   const avatar = publicPhotoUrl(s.bio_avatar_path || null);
 
-  const contacts = [
-    s.whatsapp_url && { label: 'WhatsApp', href: s.whatsapp_url },
-    s.telegram_url && { label: 'Telegram', href: s.telegram_url },
-    s.instagram_url && { label: 'Instagram', href: s.instagram_url }
-  ].filter(Boolean) as { label: string; href: string }[];
+  const contacts: { label: string; href: string }[] = [
+    ...(s.whatsapp_url  ? [{ label: 'WhatsApp',  href: s.whatsapp_url  }] : []),
+    ...(s.telegram_url  ? [{ label: 'Telegram',  href: s.telegram_url  }] : []),
+    ...(s.instagram_url ? [{ label: 'Instagram', href: s.instagram_url }] : []),
+    { label: 'Email', href: `mailto:${CONTACT_EMAIL}` }
+  ];
 
   return (
     <main className="min-h-screen bg-white px-6 py-16">
@@ -50,21 +53,19 @@ export default async function BioPage() {
           </p>
         </div>
 
-        {contacts.length > 0 && (
-          <div className={`grid gap-3 ${contacts.length === 1 ? 'max-w-xs mx-auto' : contacts.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-3'}`}>
-            {contacts.map((c) => (
-              <a
-                key={c.label}
-                href={c.href}
-                target="_blank"
-                rel="noreferrer noopener"
-                className="rounded-2xl border border-gray-200 bg-gray-50 px-6 py-4 text-sm uppercase tracking-[0.2em] text-gray-700 transition hover:bg-gray-100 hover:border-gray-300"
-              >
-                {c.label}
-              </a>
-            ))}
-          </div>
-        )}
+        <div className={`grid gap-3 ${contacts.length <= 2 ? 'max-w-xs mx-auto' : contacts.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2 md:grid-cols-4'}`}>
+          {contacts.map((c) => (
+            <a
+              key={c.label}
+              href={c.href}
+              target={c.href.startsWith('mailto') ? undefined : '_blank'}
+              rel="noreferrer noopener"
+              className="rounded-2xl border border-gray-200 bg-gray-50 px-5 py-4 text-sm uppercase tracking-[0.2em] text-gray-700 transition hover:bg-gray-100 hover:border-gray-300"
+            >
+              {c.label}
+            </a>
+          ))}
+        </div>
 
         <Link
           href="/galleries"
