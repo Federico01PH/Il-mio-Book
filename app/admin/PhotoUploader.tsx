@@ -102,15 +102,14 @@ export default function PhotoUploader({
     setUploading(true);
     setSummary('');
 
-    // Caricamento parallelo (max 3 alla volta per non saturare la connessione)
-    const CONCURRENCY = 3;
+    // Upload sequenziale: Supabase Storage su free tier non regge connessioni
+    // simultanee dal medesimo processo Node.js → fetch failed su 3+ concorrenti.
     let done = 0;
     let errors = 0;
 
-    for (let i = 0; i < toUpload.length; i += CONCURRENCY) {
-      const batch = toUpload.slice(i, i + CONCURRENCY);
-      const results = await Promise.all(batch.map((it) => uploadOne(it)));
-      results.forEach((r) => (r === 'done' ? done++ : errors++));
+    for (const it of toUpload) {
+      const r = await uploadOne(it);
+      r === 'done' ? done++ : errors++;
     }
 
     setUploading(false);

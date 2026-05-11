@@ -23,6 +23,7 @@ import {
 import PhotoUploader from './PhotoUploader';
 import SubmitButton from './SubmitButton';
 import SaveBanner from './SaveBanner';
+import StorageChecker from './StorageChecker';
 
 export const metadata: Metadata = { title: 'Admin' };
 export const dynamic = 'force-dynamic';
@@ -103,6 +104,8 @@ export default async function AdminPage({
             </button>
           </form>
         </header>
+
+        <StorageChecker />
 
         {/* CHI HA ACCESSO */}
         <Section title={`Chi ha accesso (${(approved.data ?? []).length})`}>

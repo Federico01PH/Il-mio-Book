@@ -118,17 +118,20 @@ alter table site_settings enable row level security;
 
 -- =====================================================================
 -- Storage buckets
--- Vanno creati anche dalla dashboard, ma queste righe sono idempotenti.
+-- IMPORTANTE: se queste INSERT non funzionano dal SQL Editor, crea i
+-- bucket manualmente da Supabase → Storage → New Bucket:
+--   "photos"  → Public (spunta "Public bucket")
+--   "hi-res"  → Private
 -- =====================================================================
 insert into storage.buckets (id, name, public)
   values ('photos', 'photos', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
 insert into storage.buckets (id, name, public)
   values ('hi-res', 'hi-res', false)
 on conflict (id) do nothing;
 
--- Policy: lettura pubblica del bucket "photos" (per le anteprime)
+-- Policy: lettura pubblica del bucket "photos" (per le anteprime pubbliche)
 do $$
 begin
   if not exists (
@@ -137,6 +140,20 @@ begin
     create policy photos_public_read on storage.objects
       for select to anon, authenticated
       using (bucket_id = 'photos');
+  end if;
+end $$;
+
+-- Policy: upload nel bucket "photos" via service_role (server-side)
+-- Il service_role bypassa già l'RLS, ma rendiamo esplicita anche la policy
+-- per evitare problemi con versioni future di Supabase.
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies where schemaname='storage' and tablename='objects' and policyname='photos_service_insert'
+  ) then
+    create policy photos_service_insert on storage.objects
+      for insert to authenticated
+      with check (bucket_id in ('photos', 'hi-res'));
   end if;
 end $$;
 
