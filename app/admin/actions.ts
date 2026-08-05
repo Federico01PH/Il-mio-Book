@@ -199,6 +199,50 @@ export async function createFolder(formData: FormData) {
   redirect('/admin?saved=folder');
 }
 
+export async function updateFolderCover(formData: FormData) {
+  requireAdmin();
+  const id = String(formData.get('id') ?? '');
+  if (!id) throw new Error('id mancante');
+
+  const cover = formData.get('cover') as File | null;
+  if (!cover || cover.size === 0) throw new Error('Nessuna immagine selezionata.');
+
+  const { data: folder } = await supabaseAdmin
+    .from('folders')
+    .select('slug,cover_storage_path')
+    .eq('id', id)
+    .single();
+  if (!folder) throw new Error('Cartella non trovata');
+
+  const ext = (cover.name.split('.').pop() ?? 'jpg').toLowerCase();
+  const coverPath = `covers/${folder.slug}-${Date.now()}.${ext}`;
+  const buffer = Buffer.from(await cover.arrayBuffer());
+  try {
+    const { error: uploadErr } = await supabaseAdmin.storage
+      .from(PHOTOS_BUCKET)
+      .upload(coverPath, buffer, { contentType: cover.type, upsert: true });
+    if (uploadErr) throw new Error(`Upload cover fallito: ${uploadErr.message}`);
+  } catch (e) {
+    throw diagnoseError(e, 'upload cover');
+  }
+
+  const { error } = await supabaseAdmin
+    .from('folders')
+    .update({ cover_storage_path: coverPath })
+    .eq('id', id);
+  if (error) throw new Error(error.message);
+
+  // Rimuove la vecchia cover per non lasciare file inutili nello Storage.
+  if (folder.cover_storage_path && folder.cover_storage_path !== coverPath) {
+    await supabaseAdmin.storage.from(PHOTOS_BUCKET).remove([folder.cover_storage_path]);
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/galleries');
+  revalidatePath('/');
+  redirect('/admin?saved=cover');
+}
+
 export async function deleteFolder(formData: FormData) {
   requireAdmin();
   const id = String(formData.get('id') ?? '');

@@ -9,6 +9,7 @@ const MESSAGES: Record<string, string> = {
   revoke: 'Accesso revocato.',
   hires: 'Richiesta hi-res segnata come inviata.',
   folder: 'Cartella creata.',
+  cover: 'Cover aggiornata.',
   'folder-deleted': 'Cartella eliminata.',
   photo: 'Foto caricata.',
   'photo-deleted': 'Foto eliminata.',

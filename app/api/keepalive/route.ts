@@ -20,5 +20,10 @@ export async function GET() {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
+  // Manutenzione giornaliera: cancella le visite piu vecchie di 30 giorni,
+  // cosi la sezione "Visite recenti" resta pulita e la tabella non si riempie.
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  await supabaseAdmin.from('visits').delete().lt('visited_at', cutoff);
+
   return NextResponse.json({ ok: true, at: new Date().toISOString() });
 }
