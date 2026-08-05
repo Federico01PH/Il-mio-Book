@@ -10,7 +10,6 @@ import { publicPhotoUrl } from '../../lib/storage';
 import {
   markHiResSent,
   createFolder,
-  updateFolderCover,
   deleteFolder,
   deletePhoto,
   swapFolderOrder,
@@ -19,6 +18,7 @@ import {
   adminLogout
 } from './actions';
 import PhotoUploader from './PhotoUploader';
+import CoverUploader from './CoverUploader';
 import SubmitButton from './SubmitButton';
 import SaveBanner from './SaveBanner';
 import StorageChecker from './StorageChecker';
@@ -245,22 +245,7 @@ export default async function AdminPage({
                     </div>
                   ) : null}
 
-                  <form action={updateFolderCover} className="mt-3 flex items-center gap-2">
-                    <input type="hidden" name="id" value={f.id} />
-                    <input
-                      type="file"
-                      name="cover"
-                      accept="image/*"
-                      required
-                      className="min-w-0 flex-1 text-[11px] text-white/80 file:mr-2 file:rounded-full file:border-0 file:bg-white/10 file:px-2.5 file:py-1 file:text-[10px] file:uppercase file:tracking-[0.15em] file:text-white"
-                    />
-                    <SubmitButton
-                      pendingText="…"
-                      className="shrink-0 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.15em] text-white hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {cover ? 'Cambia cover' : 'Imposta cover'}
-                    </SubmitButton>
-                  </form>
+                  <CoverUploader folderId={f.id} hasCover={Boolean(cover)} />
 
                   <p className="mt-3 text-xs text-muted">{folderPhotos.length} foto</p>
 

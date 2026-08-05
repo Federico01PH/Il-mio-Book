@@ -240,7 +240,6 @@ export async function updateFolderCover(formData: FormData) {
   revalidatePath('/admin');
   revalidatePath('/galleries');
   revalidatePath('/');
-  redirect('/admin?saved=cover');
 }
 
 export async function deleteFolder(formData: FormData) {
