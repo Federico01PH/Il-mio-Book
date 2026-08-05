@@ -91,7 +91,7 @@ export default function GalleryClient({
                 className="group relative cursor-zoom-in"
                 onClick={() => setOpenId(photo.id)}
               >
-                <div className="relative rounded-lg bg-gray-100 overflow-hidden transition-transform duration-300 ease-out group-hover:scale-[1.03] group-hover:shadow-xl">
+                <div className="relative rounded-lg bg-gray-100 overflow-hidden transition-transform duration-300 ease-out group-hover:scale-[1.06] group-hover:shadow-xl">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.src}
