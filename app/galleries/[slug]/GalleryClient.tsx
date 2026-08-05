@@ -88,10 +88,10 @@ export default function GalleryClient({
             {col.map((photo, index) => (
               <div
                 key={photo.id}
-                className="group relative cursor-zoom-in"
+                className="group relative cursor-zoom-in hover:z-20"
                 onClick={() => setOpenId(photo.id)}
               >
-                <div className="relative rounded-lg bg-gray-100 overflow-hidden transition-transform duration-300 ease-out group-hover:scale-[1.06] group-hover:shadow-xl">
+                <div className="relative rounded-lg bg-gray-100 overflow-hidden transition-transform duration-300 ease-out group-hover:scale-[1.15] group-hover:shadow-2xl">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={photo.src}
