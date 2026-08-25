@@ -9,7 +9,6 @@ import { ADMIN_COOKIE } from '../../lib/session';
 import { publicPhotoUrl } from '../../lib/storage';
 import {
   markHiResSent,
-  createFolder,
   deleteFolder,
   deletePhoto,
   swapFolderOrder,
@@ -19,6 +18,7 @@ import {
 } from './actions';
 import PhotoUploader from './PhotoUploader';
 import CoverUploader from './CoverUploader';
+import FolderCreator from './FolderCreator';
 import SubmitButton from './SubmitButton';
 import SaveBanner from './SaveBanner';
 import StorageChecker from './StorageChecker';
@@ -165,40 +165,7 @@ export default async function AdminPage({
 
         {/* CARTELLE */}
         <Section title="Cartelle">
-          <form
-            action={createFolder}
-            className="grid gap-3 rounded-2xl border border-white/10 bg-black/60 p-5 sm:grid-cols-2"
-          >
-            <label className="block text-xs text-muted">
-              Nome cartella
-              <input
-                name="name"
-                required
-                minLength={2}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
-              />
-            </label>
-            <label className="block text-xs text-muted">
-              Cover (opzionale)
-              <input
-                type="file"
-                name="cover"
-                accept="image/*"
-                className="mt-2 w-full text-sm text-white/80 file:mr-3 file:rounded-full file:border-0 file:bg-white/10 file:px-3 file:py-1.5 file:text-xs file:uppercase file:tracking-[0.2em] file:text-white"
-              />
-            </label>
-            <label className="block text-xs text-muted sm:col-span-2">
-              Descrizione (opzionale)
-              <textarea
-                name="description"
-                rows={2}
-                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <SubmitButton pendingText="Caricamento…">Crea cartella</SubmitButton>
-            </div>
-          </form>
+          <FolderCreator />
 
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {(folders.data ?? []).map((f, fi, arr) => {
