@@ -3,7 +3,8 @@ import { SESSION_COOKIE, ADMIN_COOKIE } from './lib/session';
 
 const PROTECTED_PREFIXES: string[] = []; // gallerie e bio ora pubbliche
 const ADMIN_PREFIX = '/admin';
-const ADMIN_LOGIN = '/admin/login';
+// Pagine admin raggiungibili SENZA essere gia' loggati (login e reset password).
+const ADMIN_PUBLIC = ['/admin/login', '/admin/reset'];
 
 /**
  * Middleware "leggero": controlla solo presenza dei cookie.
@@ -14,11 +15,11 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith(ADMIN_PREFIX)) {
-    if (pathname === ADMIN_LOGIN) return NextResponse.next();
+    if (ADMIN_PUBLIC.includes(pathname)) return NextResponse.next();
     const adminCookie = request.cookies.get(ADMIN_COOKIE)?.value;
     if (!adminCookie) {
       const url = request.nextUrl.clone();
-      url.pathname = ADMIN_LOGIN;
+      url.pathname = '/admin/login';
       url.searchParams.set('next', pathname);
       return NextResponse.redirect(url);
     }

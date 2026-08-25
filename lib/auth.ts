@@ -75,3 +75,26 @@ export function isAdminPassword(input: string): boolean {
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
 }
+
+/** Hash di una password con scrypt e salt casuale. Formato: scrypt$<salt>$<hash> */
+export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16);
+  const hash = crypto.scryptSync(password, salt, 64);
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`;
+}
+
+/** Verifica una password contro un hash creato da hashPassword(). */
+export function verifyPasswordHash(password: string, stored: string): boolean {
+  const parts = stored.split('$');
+  if (parts.length !== 3 || parts[0] !== 'scrypt') return false;
+  const salt = Buffer.from(parts[1], 'hex');
+  const expected = Buffer.from(parts[2], 'hex');
+  if (expected.length === 0) return false;
+  const actual = crypto.scryptSync(password, salt, expected.length);
+  return crypto.timingSafeEqual(actual, expected);
+}
+
+/** SHA-256 esadecimale (per salvare il token di reset senza tenerlo in chiaro). */
+export function sha256hex(input: string): string {
+  return crypto.createHash('sha256').update(input).digest('hex');
+}

@@ -93,6 +93,20 @@ export async function sendHiResNotificationToAdmin(params: {
   await sendEmail(env.adminEmail, `Hi-res · ${params.email}`, html);
 }
 
+export async function sendAdminPasswordReset(resetUrl: string) {
+  const html = layout(
+    'Reimposta la password admin',
+    `
+      <p>Hai richiesto di reimpostare la password dell'area amministrativa.</p>
+      <p style="margin-top:20px;">
+        <a href="${resetUrl}" style="display:inline-block;padding:12px 22px;background:#fff;color:#000;text-decoration:none;border-radius:999px;font-weight:600;">Reimposta la password</a>
+      </p>
+      <p style="font-size:12px;color:#888;margin-top:24px;">Il link scade fra 30 minuti e puo' essere usato una sola volta. Se non hai richiesto tu il reset, ignora questa email: la password resta invariata.</p>
+    `
+  );
+  await sendEmail(env.adminEmail, 'Reimposta la password admin', html);
+}
+
 function escapeHtml(input: string): string {
   return input
     .replaceAll('&', '&amp;')

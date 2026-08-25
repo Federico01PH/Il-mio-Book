@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { isAdminPassword, sign, nowSec } from '../../../../lib/auth';
+import { sign, nowSec } from '../../../../lib/auth';
+import { verifyAdminPassword } from '../../../../lib/adminAuth';
 import { ADMIN_COOKIE } from '../../../../lib/session';
 
 export const runtime = 'nodejs';
+
+// Durata sessione admin: 1 anno. Una volta entrato, il sito non richiede
+// piu' la password su quel browser per lungo tempo.
+const SESSION_SECONDS = 60 * 60 * 24 * 365;
 
 const schema = z.object({ password: z.string().min(1) });
 
@@ -15,11 +20,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: 'Dati non validi.' }, { status: 400 });
   }
 
-  if (!isAdminPassword(parsed.password)) {
+  if (!(await verifyAdminPassword(parsed.password))) {
     return NextResponse.json({ message: 'Password errata.' }, { status: 401 });
   }
 
-  const exp = nowSec() + 60 * 60 * 24 * 7;
+  const exp = nowSec() + SESSION_SECONDS;
   const token = sign({ sub: 'admin', act: 'admin-session', exp });
 
   const response = NextResponse.json({ success: true });
@@ -29,7 +34,7 @@ export async function POST(request: Request) {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    maxAge: 60 * 60 * 24 * 7,
+    maxAge: SESSION_SECONDS,
     secure: process.env.NODE_ENV === 'production'
   });
   return response;

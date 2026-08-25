@@ -6,6 +6,21 @@ import { toast } from 'sonner';
 export default function LoginForm({ next }: { next: string }) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  async function forgot() {
+    setForgotLoading(true);
+    try {
+      await fetch('/api/admin/forgot', { method: 'POST' });
+      toast.success('Se l’indirizzo admin è valido, ti abbiamo inviato un’email con il link per reimpostare la password. Controlla anche lo spam.', {
+        duration: 8000
+      });
+    } catch {
+      toast.error('Errore di rete. Riprova.');
+    } finally {
+      setForgotLoading(false);
+    }
+  }
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -56,6 +71,14 @@ export default function LoginForm({ next }: { next: string }) {
         className="inline-flex w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold uppercase tracking-[0.18em] text-black hover:bg-white/90 disabled:opacity-60"
       >
         {loading ? 'Accesso…' : 'Entra'}
+      </button>
+      <button
+        type="button"
+        onClick={forgot}
+        disabled={forgotLoading}
+        className="block w-full text-center text-xs uppercase tracking-[0.2em] text-muted hover:text-white transition disabled:opacity-60"
+      >
+        {forgotLoading ? 'Invio…' : 'Password dimenticata?'}
       </button>
     </form>
   );
