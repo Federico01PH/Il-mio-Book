@@ -1,10 +1,13 @@
 'use client';
 
-import { useMemo, useState, useRef } from 'react';
-import useEmblaCarousel from 'embla-carousel-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useState, useRef } from 'react';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
+
+// Ritmo dello slideshow di sfondo: una foto ogni 3s, con dissolvenza incrociata.
+const SLIDE_INTERVAL_MS = 3000;
+const FADE_SECONDS = 1.2;
 
 const FALLBACK_SLIDES = [
   'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=1600&q=80',
@@ -29,10 +32,34 @@ export default function InternalHome({
   slides?: string[];
   bio?: BioProps;
 }) {
-  const finalSlides = slides && slides.length > 0 ? slides : FALLBACK_SLIDES;
-  const [emblaRef] = useEmblaCarousel({ loop: true, skipSnaps: false });
+  const finalSlides = useMemo(
+    () => (slides && slides.length > 0 ? slides : FALLBACK_SLIDES),
+    [slides]
+  );
+  const [slideIndex, setSlideIndex] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
   const bioRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useReducedMotion();
+
+  // Cambio automatico dello sfondo (fermo se il sistema chiede meno animazioni).
+  useEffect(() => {
+    if (reduceMotion || finalSlides.length < 2) return;
+    const timer = window.setInterval(
+      () => setSlideIndex((i) => (i + 1) % finalSlides.length),
+      SLIDE_INTERVAL_MS
+    );
+    return () => window.clearInterval(timer);
+  }, [finalSlides, reduceMotion]);
+
+  const activeIndex = slideIndex % finalSlides.length;
+
+  // Precarico la foto dopo la prossima: la dissolvenza non deve mai mostrare un buco nero.
+  useEffect(() => {
+    const upcoming = finalSlides[(activeIndex + 2) % finalSlides.length];
+    if (!upcoming) return;
+    const img = new window.Image();
+    img.src = upcoming;
+  }, [finalSlides, activeIndex]);
 
   const items = useMemo(
     () => [
@@ -61,29 +88,36 @@ export default function InternalHome({
 
   return (
     <div className="relative bg-black text-text">
-      {/* ─── CAROUSEL (100vh) ─── */}
-      <div className="relative h-screen overflow-hidden">
+      {/* ─── SLIDESHOW DI SFONDO (100vh) ─── */}
+      <div className="relative h-screen overflow-hidden bg-black">
         <div className="absolute inset-0">
-          <div className="embla h-full" ref={emblaRef}>
-            <div className="embla__container flex h-full">
-              {finalSlides.map((src, index) => (
-                <div
-                  key={`${src}-${index}`}
-                  className="embla__slide relative h-screen min-w-full overflow-hidden"
-                >
-                  <motion.img
-                    src={src}
-                    alt={`Immagine ${index + 1}`}
-                    className="h-full w-full object-cover"
-                    initial={{ opacity: 0.85 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 1.2 }}
-                  />
-                  <div className="absolute inset-0 bg-black/35" />
-                </div>
-              ))}
-            </div>
-          </div>
+          {/* Dissolvenza incrociata: tengo montate solo la foto in uscita, quella
+              attiva e la prossima (gia' invisibile, cosi' fa in tempo a caricarsi). */}
+          {finalSlides.map((src, index) => {
+            const total = finalSlides.length;
+            const isActive = index === activeIndex;
+            const isLeaving = index === (activeIndex - 1 + total) % total;
+            const isNext = index === (activeIndex + 1) % total;
+            if (!isActive && !isLeaving && !isNext) return null;
+            return (
+              <img
+                key={`${index}-${src}`}
+                src={src}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full object-cover"
+                style={{
+                  opacity: isActive ? 1 : 0,
+                  // Leggero zoom mentre la foto e' in primo piano (effetto Ken Burns).
+                  transform: !reduceMotion && isActive ? 'scale(1.06)' : 'scale(1)',
+                  transition: `opacity ${FADE_SECONDS}s ease-in-out, transform ${
+                    SLIDE_INTERVAL_MS / 1000 + FADE_SECONDS
+                  }s linear`
+                }}
+              />
+            );
+          })}
+          <div className="absolute inset-0 bg-black/35" />
         </div>
 
         {/* nav */}
