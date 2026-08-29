@@ -15,3 +15,6 @@ dev-*.txt
 *-output.txt
 *-error.txt
 deepseek_text_*.txt
+
+# Backup dello storage Supabase: resta in locale, e troppo grande per git
+*.storage.zip
