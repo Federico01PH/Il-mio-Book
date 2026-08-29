@@ -4,6 +4,16 @@
  *  - home_slide_seconds:  secondi tra una foto e l'altra
  */
 
+/** Versione da sfondo generata dall'originale: grande per lo schermo, non per la stampa. */
+export const BACKGROUND_MAX_PX = 2048;
+export const BACKGROUND_QUALITY = 80;
+export const BACKGROUND_PREFIX = 'home-bg';
+
+/** Dove finisce, nel bucket pubblico, lo sfondo generato per una foto. */
+export function backgroundStoragePath(photoId: string): string {
+  return `${BACKGROUND_PREFIX}/${photoId}.jpg`;
+}
+
 export const DEFAULT_SLIDE_SECONDS = 7;
 export const MIN_SLIDE_SECONDS = 2;
 export const MAX_SLIDE_SECONDS = 30;

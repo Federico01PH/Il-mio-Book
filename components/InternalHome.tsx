@@ -44,13 +44,20 @@ export default function InternalHome({
   const bioRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
 
+  // Foto gia' scaricate dal browser: non passo a una che non e' pronta, altrimenti
+  // sullo schermo comparirebbe un buco nero (succede al primo giro, quando le
+  // versioni grandi devono ancora essere generate).
+  const loadedSlides = useRef(new Set<string>());
+
   // Cambio automatico dello sfondo (fermo se il sistema chiede meno animazioni).
   useEffect(() => {
     if (reduceMotion || finalSlides.length < 2) return;
-    const timer = window.setInterval(
-      () => setSlideIndex((i) => (i + 1) % finalSlides.length),
-      intervalMs
-    );
+    const timer = window.setInterval(() => {
+      setSlideIndex((i) => {
+        const next = (i + 1) % finalSlides.length;
+        return loadedSlides.current.has(finalSlides[next]) ? next : i;
+      });
+    }, intervalMs);
     return () => window.clearInterval(timer);
   }, [finalSlides, intervalMs, reduceMotion]);
 
@@ -108,11 +115,15 @@ export default function InternalHome({
                 src={src}
                 alt=""
                 aria-hidden="true"
+                onLoad={() => loadedSlides.current.add(src)}
+                // Anche se una foto non si carica la rotazione deve andare avanti.
+                onError={() => loadedSlides.current.add(src)}
                 className="absolute inset-0 h-full w-full object-cover"
                 style={{
                   opacity: isActive ? 1 : 0,
                   // Leggero zoom mentre la foto e' in primo piano (effetto Ken Burns).
-                  transform: !reduceMotion && isActive ? 'scale(1.06)' : 'scale(1)',
+                  // Tenuto basso: ingrandire troppo fa perdere definizione.
+                  transform: !reduceMotion && isActive ? 'scale(1.03)' : 'scale(1)',
                   transition: `opacity ${FADE_SECONDS}s ease-in-out, transform ${
                     intervalMs / 1000 + FADE_SECONDS
                   }s linear`

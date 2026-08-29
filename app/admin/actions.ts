@@ -8,7 +8,7 @@ import supabaseAdmin from '../../lib/supabaseServer';
 import { verify, randomToken } from '../../lib/auth';
 import { ADMIN_COOKIE } from '../../lib/session';
 import { slugify, PHOTOS_BUCKET, HIRES_BUCKET } from '../../lib/storage';
-import { parseSlideSeconds } from '../../lib/homeSlides';
+import { parseSlideSeconds, backgroundStoragePath } from '../../lib/homeSlides';
 
 /** Wrap Supabase Storage errors so "fetch failed" becomes attionable */
 function diagnoseError(e: unknown, where: string): Error {
@@ -268,6 +268,8 @@ export async function deletePhoto(formData: FormData) {
   if (photo) {
     if (photo.storage_path) await supabaseAdmin.storage.from(PHOTOS_BUCKET).remove([photo.storage_path]);
     if (photo.hi_res_storage_path) await supabaseAdmin.storage.from(HIRES_BUCKET).remove([photo.hi_res_storage_path]);
+    // Eventuale versione grande usata come sfondo della home.
+    await supabaseAdmin.storage.from(PHOTOS_BUCKET).remove([backgroundStoragePath(id)]);
   }
 
   const { error } = await supabaseAdmin.from('photos').delete().eq('id', id);
