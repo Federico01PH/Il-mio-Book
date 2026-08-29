@@ -14,6 +14,7 @@ const MESSAGES: Record<string, string> = {
   photo: 'Foto caricata.',
   'photo-deleted': 'Foto eliminata.',
   settings: 'Impostazioni salvate.',
+  home: 'Sfondo della home aggiornato.',
   reorder: 'Ordine aggiornato.'
 };
 

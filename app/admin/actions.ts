@@ -8,6 +8,7 @@ import supabaseAdmin from '../../lib/supabaseServer';
 import { verify, randomToken } from '../../lib/auth';
 import { ADMIN_COOKIE } from '../../lib/session';
 import { slugify, PHOTOS_BUCKET, HIRES_BUCKET } from '../../lib/storage';
+import { parseSlideSeconds } from '../../lib/homeSlides';
 
 /** Wrap Supabase Storage errors so "fetch failed" becomes attionable */
 function diagnoseError(e: unknown, where: string): Error {
@@ -320,6 +321,34 @@ export async function updateSettings(formData: FormData) {
   revalidatePath('/bio');
   revalidatePath('/');
   redirect('/admin?saved=settings');
+}
+
+/** Foto e ritmo dello slideshow di sfondo della home. */
+export async function updateHomeSlides(formData: FormData) {
+  requireAdmin();
+
+  const paths = formData
+    .getAll('slides')
+    .map((value) => String(value).trim())
+    .filter(Boolean);
+
+  const seconds = parseSlideSeconds(formData.get('home_slide_seconds') as string | null);
+
+  const rows = [
+    { key: 'home_slides', value: JSON.stringify(paths) },
+    { key: 'home_slide_seconds', value: String(seconds) }
+  ];
+
+  for (const row of rows) {
+    const { error } = await supabaseAdmin
+      .from('site_settings')
+      .upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (error) throw new Error(`${row.key}: ${error.message}`);
+  }
+
+  revalidatePath('/admin');
+  revalidatePath('/');
+  redirect('/admin?saved=home');
 }
 
 export async function adminLogout() {

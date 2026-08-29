@@ -14,8 +14,15 @@ import {
   swapFolderOrder,
   swapPhotoOrder,
   updateSettings,
+  updateHomeSlides,
   adminLogout
 } from './actions';
+import {
+  parseSelectedSlides,
+  parseSlideSeconds,
+  MIN_SLIDE_SECONDS,
+  MAX_SLIDE_SECONDS
+} from '../../lib/homeSlides';
 import PhotoUploader from './PhotoUploader';
 import CoverUploader from './CoverUploader';
 import FolderCreator from './FolderCreator';
@@ -35,6 +42,8 @@ interface SettingsMap {
   whatsapp_url?: string;
   telegram_url?: string;
   instagram_url?: string;
+  home_slides?: string;
+  home_slide_seconds?: string;
 }
 
 export default async function AdminPage({
@@ -81,6 +90,25 @@ export default async function AdminPage({
   }
 
   const visits = visitsResult.data ?? [];
+
+  // Foto candidate per lo sfondo della home: copertine + foto di ogni galleria.
+  const selectedSlides = parseSelectedSlides(settings.home_slides);
+  const slideSeconds = parseSlideSeconds(settings.home_slide_seconds);
+  const slideGroups = [
+    {
+      title: 'Copertine delle gallerie',
+      items: (folders.data ?? [])
+        .filter((f) => f.cover_storage_path)
+        .map((f) => ({ path: f.cover_storage_path as string, label: f.name }))
+    },
+    ...(folders.data ?? []).map((f) => ({
+      title: `Foto di ${f.name}`,
+      items: (photosByFolder.get(f.id) ?? []).map((p) => ({
+        path: p.storage_path,
+        label: p.caption ?? f.name
+      }))
+    }))
+  ].filter((group) => group.items.length > 0);
 
   return (
     <main className="min-h-screen bg-surface px-6 py-12 text-text">
@@ -276,6 +304,82 @@ export default async function AdminPage({
               );
             })}
           </div>
+        </Section>
+
+        {/* SFONDO HOME */}
+        <Section title="Sfondo della home">
+          <form
+            action={updateHomeSlides}
+            className="space-y-5 rounded-2xl border border-white/10 bg-black/60 p-5"
+          >
+            <p className="text-sm text-muted">
+              Spunta le foto che devono scorrere nello sfondo della home.{' '}
+              {selectedSlides.length > 0
+                ? `Adesso ne stanno ruotando ${selectedSlides.length}.`
+                : 'Se non ne spunti nessuna, il sito usa in automatico le copertine e qualche foto delle gallerie.'}
+            </p>
+
+            <label className="block max-w-xs text-xs text-muted">
+              Secondi tra una foto e l&apos;altra (da {MIN_SLIDE_SECONDS} a {MAX_SLIDE_SECONDS})
+              <input
+                type="number"
+                name="home_slide_seconds"
+                min={MIN_SLIDE_SECONDS}
+                max={MAX_SLIDE_SECONDS}
+                step={1}
+                defaultValue={slideSeconds}
+                className="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-white/40"
+              />
+            </label>
+
+            {slideGroups.length === 0 ? (
+              <Empty>Nessuna foto disponibile: carica prima qualche galleria.</Empty>
+            ) : (
+              slideGroups.map((group, gi) => {
+                const chosen = group.items.filter((i) => selectedSlides.includes(i.path)).length;
+                return (
+                  <details
+                    key={group.title}
+                    open={gi === 0}
+                    className="rounded-xl border border-white/10 bg-black/40 p-4"
+                  >
+                    <summary className="cursor-pointer text-xs uppercase tracking-[0.2em] text-white/80">
+                      {group.title} ({chosen}/{group.items.length})
+                    </summary>
+                    <div className="mt-4 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
+                      {group.items.map((item) => {
+                        const url = publicPhotoUrl(item.path);
+                        return (
+                          <label key={item.path} className="relative block cursor-pointer">
+                            <input
+                              type="checkbox"
+                              name="slides"
+                              value={item.path}
+                              defaultChecked={selectedSlides.includes(item.path)}
+                              className="peer sr-only"
+                            />
+                            <div className="relative h-24 overflow-hidden rounded-xl border-2 border-white/10 bg-white/5 opacity-40 transition peer-checked:border-emerald-400 peer-checked:opacity-100 peer-focus-visible:border-white">
+                              {url ? (
+                                <Image src={url} alt="" fill sizes="160px" className="object-cover" />
+                              ) : null}
+                            </div>
+                            <span className="absolute right-2 top-2 hidden rounded-full bg-emerald-400 px-1.5 py-0.5 text-[10px] font-semibold text-black peer-checked:block">
+                              ✓
+                            </span>
+                            <span className="mt-1 block truncate text-[10px] text-muted">
+                              {item.label}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </details>
+                );
+              })
+            )}
+
+            <SubmitButton pendingText="Salvataggio…">Salva sfondo home</SubmitButton>
+          </form>
         </Section>
 
         {/* IMPOSTAZIONI */}

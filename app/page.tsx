@@ -1,6 +1,7 @@
 import InternalHome from '../components/InternalHome';
 import supabaseAdmin from '../lib/supabaseServer';
 import { publicPhotoUrl } from '../lib/storage';
+import { parseSelectedSlides, parseSlideSeconds } from '../lib/homeSlides';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,11 @@ export default async function Page() {
       .limit(60),
     supabaseAdmin.from('site_settings').select('key,value')
   ]);
+
+  const settings: Record<string, string> = {};
+  for (const row of settingsRows ?? []) {
+    settings[row.key] = row.value ?? '';
+  }
 
   const covers = (folders ?? [])
     .map((f) => publicPhotoUrl(f.cover_storage_path))
@@ -46,12 +52,15 @@ export default async function Page() {
   }
 
   // Prima le copertine (sono le foto scelte come vetrina), poi le altre.
-  const slides = [...new Set([...covers, ...interleaved])].slice(0, HERO_MAX_SLIDES);
+  const automaticSlides = [...new Set([...covers, ...interleaved])].slice(0, HERO_MAX_SLIDES);
 
-  const settings: Record<string, string> = {};
-  for (const row of settingsRows ?? []) {
-    settings[row.key] = row.value ?? '';
-  }
+  // Se dall'admin sono state scelte delle foto, comandano quelle.
+  const chosenSlides = parseSelectedSlides(settings.home_slides)
+    .map((path) => publicPhotoUrl(path))
+    .filter((u): u is string => Boolean(u));
+
+  const slides = chosenSlides.length > 0 ? chosenSlides : automaticSlides;
+  const slideSeconds = parseSlideSeconds(settings.home_slide_seconds);
 
   const bio = {
     name: settings.bio_name || 'Federico Azzarito',
@@ -65,7 +74,7 @@ export default async function Page() {
 
   return (
     <main className="bg-surface text-text">
-      <InternalHome slides={slides} bio={bio} />
+      <InternalHome slides={slides} bio={bio} intervalMs={slideSeconds * 1000} />
     </main>
   );
 }

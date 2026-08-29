@@ -98,7 +98,10 @@ insert into site_settings (key, value) values
   ('bio_avatar_path', ''),
   ('whatsapp_url', 'https://whatsapp.com/channel/0029Vb7Mv0sLNSa7YKQ6Rp1D'),
   ('telegram_url', 'https://t.me/+rAqV5qdADV04OTk0'),
-  ('instagram_url', '')
+  ('instagram_url', ''),
+  -- Sfondo della home: JSON con gli storage_path scelti ([] = scelta automatica)
+  ('home_slides', '[]'),
+  ('home_slide_seconds', '7')
 on conflict (key) do nothing;
 
 -- =====================================================================

@@ -5,8 +5,9 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import Link from 'next/link';
 import Image from 'next/image';
 
-// Ritmo dello slideshow di sfondo: una foto ogni 3s, con dissolvenza incrociata.
-const SLIDE_INTERVAL_MS = 3000;
+// Ritmo dello slideshow di sfondo. I secondi arrivano dalle impostazioni admin;
+// questo e' solo il valore usato se non e' stato ancora scelto niente.
+const DEFAULT_INTERVAL_MS = 7000;
 const FADE_SECONDS = 1.2;
 
 const FALLBACK_SLIDES = [
@@ -27,10 +28,12 @@ interface BioProps {
 
 export default function InternalHome({
   slides,
-  bio
+  bio,
+  intervalMs = DEFAULT_INTERVAL_MS
 }: {
   slides?: string[];
   bio?: BioProps;
+  intervalMs?: number;
 }) {
   const finalSlides = useMemo(
     () => (slides && slides.length > 0 ? slides : FALLBACK_SLIDES),
@@ -46,10 +49,10 @@ export default function InternalHome({
     if (reduceMotion || finalSlides.length < 2) return;
     const timer = window.setInterval(
       () => setSlideIndex((i) => (i + 1) % finalSlides.length),
-      SLIDE_INTERVAL_MS
+      intervalMs
     );
     return () => window.clearInterval(timer);
-  }, [finalSlides, reduceMotion]);
+  }, [finalSlides, intervalMs, reduceMotion]);
 
   const activeIndex = slideIndex % finalSlides.length;
 
@@ -111,7 +114,7 @@ export default function InternalHome({
                   // Leggero zoom mentre la foto e' in primo piano (effetto Ken Burns).
                   transform: !reduceMotion && isActive ? 'scale(1.06)' : 'scale(1)',
                   transition: `opacity ${FADE_SECONDS}s ease-in-out, transform ${
-                    SLIDE_INTERVAL_MS / 1000 + FADE_SECONDS
+                    intervalMs / 1000 + FADE_SECONDS
                   }s linear`
                 }}
               />
